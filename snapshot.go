@@ -11,6 +11,13 @@ type Snapshot struct {
 	lex     []Lexeme
 }
 
+func (s *Snapshot) Scan() []Lexeme {
+	if s.lex == nil {
+		s.lex = Lex(s.content)
+	}
+	return s.lex
+}
+
 func (s *Snapshot) SugarToGo(line, column int) (int, int, error) {
 	return line, column, nil
 }
