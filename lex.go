@@ -7,34 +7,28 @@ import (
 
 type Lexeme interface {
 	Tok() token.Token
-	Pos() token.Pos
 	Lit() string
-	Offset() int
 	Raw() string
+	Offset() int
+	Line() int
+	Column() int
 }
 
 type Token struct {
 	tok    token.Token
-	pos    token.Pos
 	lit    string
-	offset int
 	raw    string
+	line   int
+	column int
+	offset int
 }
 
 func (t *Token) Tok() token.Token {
 	return t.tok
 }
 
-func (t *Token) Pos() token.Pos {
-	return t.pos
-}
-
 func (t *Token) Lit() string {
 	return t.lit
-}
-
-func (t *Token) Offset() int {
-	return t.offset
 }
 
 func (t *Token) Raw() string {
@@ -45,45 +39,63 @@ func (t *Token) SetRaw(raw string) {
 	t.raw = raw
 }
 
+func (t *Token) Line() int {
+	return t.line
+}
+
+func (t *Token) Column() int {
+	return t.column
+}
+
+func (t *Token) Offset() int {
+	return t.offset
+}
+
 var _ Lexeme = (*Token)(nil)
 
-func NewToken(tok token.Token, pos token.Pos, offset int) *Token {
-	return &Token{tok: tok, pos: pos, offset: offset}
+func NewToken(tok token.Token, lit string, line, column, offset int) *Token {
+	return &Token{
+		tok:    tok,
+		lit:    lit,
+		line:   line,
+		column: column,
+		offset: offset,
+	}
 }
 
 type ScanFunc func(prev Lexeme, current *Token, next *Token, source []byte) Lexeme
 
-func Scan(source []byte, scan ScanFunc) []Lexeme {
+func Scan(content []byte, scan ScanFunc) []Lexeme {
 	fset := token.NewFileSet()
-	file := fset.AddFile("", fset.Base(), len(source))
+	file := fset.AddFile("", fset.Base(), len(content))
 
 	var s scanner.Scanner
-	s.Init(file, source, nil, 0)
+	s.Init(file, content, nil, 0)
 
 	var tokens []Lexeme
 	var current *Token
 
 	for {
 		pos, tok, lit := s.Scan()
-		offset := fset.Position(pos).Offset
 		if tok == token.EOF {
 			break
 		}
 
-		next := &Token{tok: tok, pos: pos, lit: lit, offset: offset}
+		position := fset.Position(pos)
+		next := &Token{tok: tok, lit: lit, line: position.Line, column: position.Column, offset: position.Offset}
 		if next.lit == "" {
 			next.lit = tok.String()
 		}
 
 		if current != nil {
-			current.raw = string(source[current.offset:offset])
+			current.raw = string(content[current.offset:position.Offset])
 			var lex Lexeme = current
 			if scan != nil {
 				var prev Lexeme
 				if len(tokens) > 0 {
 					prev = tokens[len(tokens)-1]
 				}
-				lex = scan(prev, current, next, source)
+				lex = scan(prev, current, next, content)
 			}
 			tokens = append(tokens, lex)
 		}
@@ -92,14 +104,14 @@ func Scan(source []byte, scan ScanFunc) []Lexeme {
 	}
 
 	if current != nil {
-		current.raw = string(source[current.offset:])
+		current.raw = string(content[current.offset:])
 		var lex Lexeme = current
 		if scan != nil {
 			var prev Lexeme
 			if len(tokens) > 0 {
 				prev = tokens[len(tokens)-1]
 			}
-			lex = scan(prev, current, nil, source)
+			lex = scan(prev, current, nil, content)
 		}
 		tokens = append(tokens, lex)
 	}

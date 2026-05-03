@@ -8,29 +8,33 @@ import (
 )
 
 type checkToken struct {
-	original *sugar.Token
-	lhs      []token.Token
-	operand  string
+	lex     *sugar.Token
+	lhs     []token.Token
+	operand string
 }
 
 func (c *checkToken) Tok() token.Token {
-	return c.original.Tok()
-}
-
-func (c *checkToken) Pos() token.Pos {
-	return c.original.Pos()
+	return c.lex.Tok()
 }
 
 func (c *checkToken) Lit() string {
-	return c.original.Lit()
-}
-
-func (c *checkToken) Offset() int {
-	return c.original.Offset()
+	return c.lex.Lit()
 }
 
 func (c *checkToken) Raw() string {
-	return strings.Repeat(" ", len(c.original.Raw()))
+	return c.lex.Raw()
+}
+
+func (c *checkToken) Line() int {
+	return c.lex.Line()
+}
+
+func (c *checkToken) Column() int {
+	return c.lex.Column()
+}
+
+func (c *checkToken) Offset() int {
+	return c.lex.Offset()
 }
 
 var _ sugar.Lexeme = (*checkToken)(nil)
@@ -39,7 +43,7 @@ func Scan(source []byte) []sugar.Lexeme {
 	return sugar.Scan(source, func(prev sugar.Lexeme, current *sugar.Token, next *sugar.Token, source []byte) sugar.Lexeme {
 		if current.Lit() == "check" {
 			return &checkToken{
-				original: current,
+				lex: current,
 			}
 		}
 		return current
