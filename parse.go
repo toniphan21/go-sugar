@@ -78,7 +78,7 @@ type LexemePredicate struct {
 }
 
 func (*LexemePredicate) Boundary(lex Lexeme) bool {
-	return lex.Tok == token.SEMICOLON
+	return lex.Tok == token.SEMICOLON || lex.Tok == token.LBRACE
 }
 
 func (*LexemePredicate) Ident(lit string) func(Lexeme) bool {

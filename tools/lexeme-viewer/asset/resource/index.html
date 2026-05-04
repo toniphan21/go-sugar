@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>go-sugar - Lexeme Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
+          rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            font-family: Roboto, Courier, Arial, Helvetica, sans-serif;
+            background: white;
+            color: #222;
+            line-height: 1.5em;
+        }
+
+        a {
+            color: #0969da;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        hr {
+            display: block;
+            height: 1px;
+            border: 0;
+            border-top: 1px solid #eee;
+            margin: 1em 0;
+            padding: 0;
+        }
+
+        blockquote {
+            margin: 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+            font-size: 14px;
+            line-height: 1.25em;
+            border: 1px solid #ddd;
+            border-bottom: none;
+        }
+
+        #editor {
+            border: 1px solid #ddd;
+        }
+
+        .layout {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .sidebar {
+            width: 350px;
+            padding: 20px;
+            border-left: 1px solid #eee;
+        }
+
+        .sidebar h1 {
+            font-size: 22px;
+            margin-top: 20px;
+        }
+
+        .sidebar h2, main h2 {
+            font-size: 16px;
+            margin-top: 20px;
+        }
+
+        main h2 {
+            margin-top: 0;
+        }
+
+        .sidebar h3 {
+            font-size: 14px;
+            margin-top: 20px;
+        }
+
+        .sidebar h3:first-child {
+            margin-top: 0;
+        }
+
+        .sidebar div {
+            overflow: auto;
+        }
+
+        main {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            min-width: 0;
+        }
+
+        main > div {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content h1 {
+            margin-top: 0;
+        }
+
+        pre {
+            background: #f6f6f6;
+            padding: 12px;
+            overflow-x: auto;
+        }
+
+        code {
+            padding: 2px 4px;
+            line-height: 1em;
+        }
+
+        p > code, li > code {
+            background: #f2f2f2;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .layout {
+                display: block;
+            }
+
+            .sidebar {
+                display: none;
+            }
+
+            .content {
+                padding: 20px;
+            }
+        }
+
+        .cm-editor {
+            height: 100%;
+            max-width: 100%;
+        }
+
+        .cm-scroller {
+            overflow-x: auto !important;
+        }
+
+        .cm-editor .cm-keyword {
+            color: var(--cm-keyword-color, #708);
+        }
+
+        #lexemes {
+            white-space: pre;
+            font-family: monospace;
+        }
+
+        #lexemes .token {
+            border: #ddd solid 1px;
+            padding: 0 3px;
+            margin: 1px;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        #lexemes .token:hover, #lexemes .token.hovered  {
+            border: #0969da solid 2px;
+            margin: 0;
+        }
+
+        #lexemes .token.clicked {
+            border: #d00 solid 2px;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="layout">
+    <main class="content">
+        <div>
+            <h2>go-sugar Lexeme Viewer</h2>
+            <div id="editor"></div>
+            <div class="controls">
+                <label style="margin-right: 15px; font-size: 14px; cursor: pointer;">
+                    <input type="checkbox" id="vim-checkbox"> VIM mode
+                </label>
+                <div>
+                    <label style="margin-right: 15px; font-size: 14px; cursor: pointer;">
+                        <input type="checkbox" id="auto-generate" checked> Auto
+                    </label>
+                    <button id="lex-btn"
+                            style="background-color: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                        Lex
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div id="lexemes"></div>
+        </div>
+    </main>
+
+    <aside class="sidebar">
+        <h3>hovered token info</h3>
+        <div id="hovered-token"></div>
+
+        <h3>clicked token info</h3>
+        <div id="clicked-token"></div>
+    </aside>
+
+    <script src="wasm_exec.js"></script>
+    <script type="module">
+        const VERSION = "dev-" + (new Date()).getTime()
+        import {EditorState, Compartment} from 'https://esm.sh/@codemirror/state';
+        import {EditorView, basicSetup} from 'https://esm.sh/codemirror';
+        import {go} from 'https://esm.sh/@codemirror/lang-go';
+        import {vim} from 'https://esm.sh/@replit/codemirror-vim';
+        import {Decoration, MatchDecorator, ViewPlugin} from "https://esm.sh/@codemirror/view"
+
+        const goSugarKeywords = ["check", "or"]
+        const regex = new RegExp("\\b(" + goSugarKeywords.join("|") + ")\\b", "g")
+        const decorator = new MatchDecorator({
+            regexp: regex,
+            decoration: match => Decoration.mark({
+                tagName: "span",
+                attributes: {class: "cm-keyword"}
+            })
+        })
+        const goSugarKeywordsPlugin = ViewPlugin.fromClass(class {
+            constructor(view) {
+                this.decorations = decorator.createDeco(view)
+            }
+
+            update(update) {
+                this.decorations = decorator.updateDeco(update, this.decorations)
+            }
+        }, {
+            decorations: v => v.decorations
+        })
+
+        const vimConfig = new Compartment();
+        let editor;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const updateListener = EditorView.updateListener.of((update) => {
+                const autoCheckbox = document.getElementById('auto-generate');
+                if (autoCheckbox.checked && update.docChanged) {
+                    executeLexer()
+                }
+            });
+
+            document.getElementById("lex-btn").addEventListener("click", () => {
+                executeLexer()
+            });
+
+            document.getElementById("vim-checkbox").addEventListener("change", (e) => {
+                const isVimEnabled = e.target.checked;
+                editor.dispatch({
+                    effects: vimConfig.reconfigure(isVimEnabled ? vim() : [])
+                });
+                editor.focus();
+            });
+
+            const example = [
+                `package main`,
+                ``,
+                `import (`,
+                `  "fmt"`,
+                `  "strconv"`,
+                `)`,
+                ``,
+                `func printSum(a, b string) error {`,
+                `  x := check strconv.Atoi(a)`,
+                `  y := check strconv.Atoi(b)`,
+                ``,
+                `  fmt.Printf("%d\\n", x + y)`,
+                `  return nil`,
+                `}`,
+                ``,
+            ]
+            const startState = EditorState.create({
+                doc: example.join("\n"),
+                extensions: [
+                    basicSetup,
+                    go(),
+                    goSugarKeywordsPlugin,
+                    updateListener,
+                    vimConfig.of([])
+                ]
+            });
+
+            editor = new EditorView({
+                state: startState,
+                parent: document.getElementById("editor")
+            });
+
+            const goWasm = new Go();
+            WebAssembly.instantiateStreaming(fetch("main.wasm?v=" + VERSION), goWasm.importObject)
+                .then(result => {
+                    goWasm.run(result.instance);
+                    executeLexer()
+                });
+        })
+
+        function updateDisplay(elementId, data) {
+            const container = document.getElementById(elementId);
+            const prettyJson = JSON.stringify(data, null, 2);
+            container.innerHTML = `<pre>${prettyJson}</pre>`;
+        }
+
+        function setSharedState(id, className, action) {
+            const allSpans = document.querySelectorAll(`[data-id="${id}"]`);
+            allSpans.forEach(span => {
+                if (action === 'add') span.classList.add(className);
+                else span.classList.remove(className);
+            });
+        }
+
+        function executeLexer() {
+            const output = lex(editor.state.doc.toString())
+            const container = document.getElementById('lexemes');
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+
+            if (!output.ok) {
+                return
+            }
+
+            let clicked = null;
+            output.lexemes.forEach(item => {
+                const parts = item.raw.split('\n');
+
+                parts.forEach((part, index) => {
+                    const span = document.createElement('span');
+                    span.textContent = part.length > 0 ? part.replace(/\t/g, '    ') : '\u200B';
+                    span.className = `token`;
+                    span.dataset.id = item.offset;
+                    span.dataset.info = JSON.stringify(item);
+                    container.appendChild(span);
+
+                    span.addEventListener('click', (e) => {
+                        if (clicked) {
+                            setSharedState(clicked.dataset.id, 'clicked', 'remove');
+                        }
+
+                        setSharedState(e.target.dataset.id, 'clicked', 'add');
+                        clicked = e.target;
+
+                        const data = JSON.parse(e.target.dataset.info);
+                        updateDisplay('clicked-token', data);
+                    });
+
+                    span.addEventListener('mouseover', (e) => {
+                        const id = e.target.dataset.id;
+                        setSharedState(id, 'hovered', 'add');
+
+                        const data = JSON.parse(e.target.dataset.info);
+                        updateDisplay('hovered-token', data);
+                    });
+
+                    span.addEventListener('mouseout', (e) => {
+                        setSharedState(e.target.dataset.id, 'hovered', 'remove');
+                    });
+
+                    if (index < parts.length - 1) {
+                        container.appendChild(document.createElement('br'));
+                    }
+                });
+            });
+        }
+
+        function lex(input) {
+            let result = runExtractLexemes(input);
+            if (!result || typeof result.lexemes === "undefined" || typeof result.error === "undefined") {
+                return {lexemes: [], ok: false};
+            }
+
+            return {
+                lexemes: JSON.parse(result.lexemes ?? "[]"),
+                ok: !result.error
+            }
+        }
+    </script>
+</div>
+
+</body>
+</html>

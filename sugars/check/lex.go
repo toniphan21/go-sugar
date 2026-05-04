@@ -5,9 +5,9 @@ import "nhatp.com/go/sugar"
 type state int
 
 const (
-	stateIdle  state = iota
-	stateStart       = iota
-	stateLHS
+	stateIdle state = iota
+	stateStart
+	stateTarget
 	stateExpectCheck
 	stateExpr
 	stateExprIgnore
@@ -19,7 +19,7 @@ var on = &sugar.LexemePredicate{}
 func newRecognizer() sugar.StateMachine[state, node, node, node] {
 	do := &nodeBuilder{}
 	transitions := []sugar.Transition[state]{
-		{From: stateStart, Event: on.Boundary, To: stateLHS, Action: do.clearLHS},
+		{From: stateStart, Event: on.Boundary, To: stateTarget, Action: do.clearLHS},
 	}
 
 	return &recognizer{transitions: transitions, builder: do}

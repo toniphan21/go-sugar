@@ -33,3 +33,5 @@ go.work.sum
 .run
 
 /bin
+
+*.wasm
