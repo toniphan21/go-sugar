@@ -46,10 +46,10 @@ func (r *recognizer) InitialState() state {
 func (r *recognizer) Status(s state) sugar.Status {
 	switch s {
 	case stateIdle, stateStart, stateEnd:
-		return sugar.Terminal
+		return sugar.StatusCompleted
 
 	default:
-		return sugar.Running
+		return sugar.StatusRunning
 	}
 }
 

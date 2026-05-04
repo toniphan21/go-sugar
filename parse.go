@@ -5,17 +5,17 @@ import "go/token"
 type Status int
 
 const (
-	Terminal Status = iota
-	Running
-	Failed
+	StatusCompleted Status = iota
+	StatusRunning
+	StatusFailed
 )
 
 type Transition[S ~int] struct {
 	From    S
 	Event   func(lex Lexeme) bool
 	To      S
-	Action  func(Lexeme)
-	Actions []func(Lexeme)
+	Action  func(lex Lexeme)
+	Actions []func(lex Lexeme)
 }
 
 func (t *Transition[S]) Invoke() func(Lexeme) {
@@ -56,19 +56,19 @@ func RunStateMachine[S ~int, N, E, P any](machine StateMachine[S, N, E, P], lexe
 		current = next
 
 		switch machine.Status(current) {
-		case Terminal:
+		case StatusCompleted:
 			nodes = append(nodes, machine.Build())
 			current = machine.InitialState()
-		case Failed:
+		case StatusFailed:
 			errors = append(errors, machine.BuildError())
 			current = machine.InitialState()
-		case Running:
+		case StatusRunning:
 			// keep going
 		}
 	}
 
 	var partial P
-	if machine.Status(current) == Running {
+	if machine.Status(current) == StatusRunning {
 		partial = machine.BuildPartial()
 	}
 	return nodes, errors, partial
@@ -81,8 +81,24 @@ func (*LexemePredicate) Boundary(lex Lexeme) bool {
 	return lex.Tok == token.SEMICOLON || lex.Tok == token.LBRACE
 }
 
-func (*LexemePredicate) Ident(lit string) func(Lexeme) bool {
+func (*LexemePredicate) IdentMatch(lit string) func(Lexeme) bool {
 	return func(lex Lexeme) bool {
 		return lex.Tok == token.IDENT && lex.Lit == lit
 	}
+}
+
+func (*LexemePredicate) Ident(lex Lexeme) bool {
+	return lex.Tok == token.IDENT
+}
+
+func (*LexemePredicate) IsNotIdent(lex Lexeme) bool {
+	return lex.Tok != token.IDENT
+}
+
+func (p *LexemePredicate) Period(lex Lexeme) bool {
+	return lex.Tok == token.PERIOD
+}
+
+func (p *LexemePredicate) Any(lex Lexeme) bool {
+	return true
 }
