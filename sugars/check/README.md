@@ -3,12 +3,9 @@
 ### Syntax
 
 ```ebnf
-CheckStmt         = [ CheckResult ] "check" Expression
+StatementBoundary = ";" | "{" .
 
-CheckResult       = CheckShortVarDecl | CheckVarDecl | CheckAssignment .
-CheckShortVarDecl = IdentifierList ":=" .
-CheckVarDecl      = "var" IdentifierList [ Type ] "=" .
-CheckAssignment   = ExpressionList "=" .
+Check = StatementBoundary [ IdentifierList ":=" ] "check" OperandName .
 ```
 
 examples
@@ -40,7 +37,7 @@ if err != nil {
 
 ```mermaid
 stateDiagram-v2
-    Idle --> Start: Boundary<br/>
+    Idle --> Start: StatementBoundary<br/>
     Idle --> Idle: Any<br/>nil
     Start --> ExpectCheck: IDENT("check")<br/>nil
     Start --> Target: IDENT<br/>nil
@@ -65,6 +62,12 @@ stateDiagram-v2
 ### WIP
 
 ````
+next form
+
+StatementBoundary = ";" | "{" .
+
+Check = StatementBoundary [ IdentifierList ":=" ] "check" OperandName .
+
 full form
 
 ```ebnf

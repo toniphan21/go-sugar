@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"nhatp.com/go/sugar"
 )
@@ -19,7 +20,7 @@ func safeExtractLexemes(input string) (output string, err error) {
 
 type Lexeme struct {
 	Token           string          `json:"Tok"`
-	LexemePredicate LexemePredicate `json:"LexemePredicate"`
+	LexemePredicate map[string]bool `json:"LexemePredicate"`
 
 	Lit    string `json:"lit"`
 	Raw    string `json:"raw"`
@@ -28,16 +29,36 @@ type Lexeme struct {
 	Offset int    `json:"offset"`
 }
 
-type LexemePredicate struct {
-	StatementBoundary bool `json:"StatementBoundary"`
+func makeLexemePredicate(v sugar.Lexeme) map[string]bool {
+	on := &sugar.LexemePredicate{}
+	onType := reflect.TypeOf(on)
+	onVal := reflect.ValueOf(on)
+	boolType := reflect.TypeOf(true)
+	lexemeType := reflect.TypeOf(v)
+
+	results := make(map[string]bool)
+
+	for i := range onType.NumMethod() {
+		m := onType.Method(i)
+		mt := m.Type
+
+		if mt.NumIn() != 2 || mt.NumOut() != 1 {
+			continue
+		}
+		if mt.In(1) != lexemeType || mt.Out(0) != boolType {
+			continue
+		}
+
+		out := onVal.Method(i).Call([]reflect.Value{reflect.ValueOf(v)})
+		results[m.Name] = out[0].Bool()
+	}
+	return results
 }
 
 func extractLexemes(input string) (string, error) {
 	content := []byte(input)
 	lex := sugar.Lex(content)
 	var list []*Lexeme
-
-	on := &sugar.LexemePredicate{}
 
 	for i, v := range lex {
 		end := len(content)
@@ -46,14 +67,12 @@ func extractLexemes(input string) (string, error) {
 		}
 
 		item := &Lexeme{
-			Lit:    v.Lit,
-			Line:   v.Line,
-			Column: v.Column,
-			Offset: v.Offset,
-			Raw:    string(content[v.Offset:end]),
-			LexemePredicate: LexemePredicate{
-				StatementBoundary: on.Boundary(v),
-			},
+			Lit:             v.Lit,
+			Line:            v.Line,
+			Column:          v.Column,
+			Offset:          v.Offset,
+			Raw:             string(content[v.Offset:end]),
+			LexemePredicate: makeLexemePredicate(v),
 		}
 
 		t := int(v.Tok)

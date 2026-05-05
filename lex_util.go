@@ -1,0 +1,36 @@
+package sugar
+
+import "go/token"
+
+type LexemePredicate struct {
+}
+
+func (*LexemePredicate) StatementBoundary(lex Lexeme) bool {
+	return lex.Tok == token.SEMICOLON || lex.Tok == token.LBRACE
+}
+
+func (*LexemePredicate) IdentMatch(lit string) func(Lexeme) bool {
+	return func(lex Lexeme) bool {
+		return lex.Tok == token.IDENT && lex.Lit == lit
+	}
+}
+
+func (*LexemePredicate) Ident(lex Lexeme) bool {
+	return lex.Tok == token.IDENT
+}
+
+func (*LexemePredicate) IsNotIdent(lex Lexeme) bool {
+	return lex.Tok != token.IDENT
+}
+
+func (p *LexemePredicate) Comma(lex Lexeme) bool {
+	return lex.Tok == token.COMMA
+}
+
+func (p *LexemePredicate) Period(lex Lexeme) bool {
+	return lex.Tok == token.PERIOD
+}
+
+func (p *LexemePredicate) Any(lex Lexeme) bool {
+	return true
+}
