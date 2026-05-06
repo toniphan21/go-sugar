@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"go/token"
 	"reflect"
 
 	"nhatp.com/go/sugar"
@@ -20,6 +21,7 @@ func safeExtractLexemes(input string) (output string, err error) {
 
 type Lexeme struct {
 	Token           string          `json:"Tok"`
+	Pos             token.Pos       `json:"Pos"`
 	LexemePredicate map[string]bool `json:"LexemePredicate"`
 
 	Lit    string `json:"lit"`
@@ -67,6 +69,7 @@ func extractLexemes(input string) (string, error) {
 		}
 
 		item := &Lexeme{
+			Pos:             v.Pos,
 			Lit:             v.Lit,
 			Line:            v.Line,
 			Column:          v.Column,

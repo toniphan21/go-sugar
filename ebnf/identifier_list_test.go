@@ -3,48 +3,50 @@ package ebnf
 import (
 	"reflect"
 	"testing"
+
+	"nhatp.com/go/sugar/lextest"
 )
 
 func Test_IdentifierList(t *testing.T) {
-	cases := []lexicalParserTestCase[IdentifierList]{
+	cases := []lextest.ContinuousTestCase[IdentifierList]{
 		{
-			name:     "invalid: single lit",
-			code:     `"hello"`,
-			expected: nil,
+			Name:     "invalid: single lit",
+			Code:     `"hello"`,
+			Expected: nil,
 		},
 
 		{
-			name:     "invalid: multiple literals",
-			code:     `1, 2, "a", 'b'`,
-			expected: nil,
+			Name:     "invalid: multiple literals",
+			Code:     `1, 2, "a", 'b'`,
+			Expected: nil,
 		},
 
 		{
-			name:     "invalid: mixed, stop before lit",
-			code:     `a, 1`,
-			expected: nil,
+			Name:     "invalid: mixed, stop before lit",
+			Code:     `a, 1`,
+			Expected: nil,
 		},
 
 		{
-			name: "valid: single ident",
-			code: `a`,
-			expected: []IdentifierList{
+			Name: "valid: single ident",
+			Code: `a`,
+			Expected: []IdentifierList{
 				{Identifier: []string{"a"}},
 			},
 		},
 
 		{
-			name: "valid: two idents",
-			code: `a, b`,
-			expected: []IdentifierList{
+			Name: "valid: two idents",
+			Code: `a, b`,
+			Expected: []IdentifierList{
 				{Identifier: []string{"a", "b"}},
 			},
 		},
 
 		{
-			name: "valid: restart every time see .",
-			code: `t.a, t.b`,
-			expected: []IdentifierList{
+			Name: "valid: restart every time see .",
+			Code: `t.a, t.b`,
+			Expected: []IdentifierList{
 				{Identifier: []string{"t"}},
 				{Identifier: []string{"a", "t"}},
 				{Identifier: []string{"b"}},
@@ -53,12 +55,12 @@ func Test_IdentifierList(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.Name, func(t *testing.T) {
 			parser := IdentifierListParser()
-			result := executeLexicalParserContinuously(parser, tc.code, asType[IdentifierList])
+			result := lextest.ExecuteLexicalParserContinuously(parser, tc.Code, lextest.AsType[IdentifierList])
 
-			if !reflect.DeepEqual(result, tc.expected) {
-				t.Errorf("expected %v but got %v", tc.expected, result)
+			if !reflect.DeepEqual(result, tc.Expected) {
+				t.Errorf("expected %v but got %v", tc.Expected, result)
 			}
 		})
 	}

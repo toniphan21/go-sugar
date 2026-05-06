@@ -7,6 +7,7 @@ import (
 
 type Lexeme struct {
 	Tok    token.Token
+	Pos    token.Pos
 	Lit    string
 	Line   int
 	Column int
@@ -22,21 +23,22 @@ func Lex(content []byte) []Lexeme {
 
 	var result []Lexeme
 	for {
-		p, t, l := s.Scan()
-		if t == token.EOF {
+		pos, tok, lit := s.Scan()
+		if tok == token.EOF {
 			break
 		}
 
-		pos := fset.Position(p)
+		position := fset.Position(pos)
 		lex := Lexeme{
-			Tok:    t,
-			Lit:    l,
-			Line:   pos.Line,
-			Column: pos.Column,
-			Offset: pos.Offset,
+			Tok:    tok,
+			Pos:    pos,
+			Lit:    lit,
+			Line:   position.Line,
+			Column: position.Column,
+			Offset: position.Offset,
 		}
 		if lex.Lit == "" {
-			lex.Lit = t.String()
+			lex.Lit = tok.String()
 		}
 		result = append(result, lex)
 	}

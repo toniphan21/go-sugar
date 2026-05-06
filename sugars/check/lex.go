@@ -1,66 +1,57 @@
 package check
 
-//type state int
-//
-//const (
-//	stateIdle state = iota
-//	stateStart
-//	stateTarget
-//	stateExpectCheck
-//	stateExpr
-//	stateExprIgnore
-//	stateEnd
-//)
-//
-//func newRecognizer() sugar.StateMachine[state, node, node, node] {
-//	//on := &sugar.LexemePredicate{}
-//	//do := &nodeBuilder{}
-//	//transitions := []sugar.Transition[state]{
-//	//	{From: stateStart, Event: on.StatementBoundary, To: stateTarget, Action: do.clearLHS},
-//	//}
-//
-//	return &recognizer{}
-//}
-//
-//type recognizer struct {
-//	transitions []sugar.Transition[state]
-//	builder     *nodeBuilder
-//}
-//
-//func (r *recognizer) Transition(current state, lex sugar.Lexeme) (state, func(sugar.Lexeme)) {
-//	for _, row := range r.transitions {
-//		next, action, ok := row.Invoke(current, lex)
-//		if ok {
-//			return next, action
-//		}
-//	}
-//	return stateStart, r.builder.reset
-//}
-//
-//func (r *recognizer) InitialState() state {
-//	return stateStart
-//}
-//
-//func (r *recognizer) Status(s state) sugar.Status {
-//	switch s {
-//	case stateIdle, stateStart, stateEnd:
-//		return sugar.StatusCompleted
-//
-//	default:
-//		return sugar.StatusRunning
-//	}
-//}
-//
-//func (r *recognizer) Build() node {
-//	return r.builder.build()
-//}
-//
-//func (r *recognizer) BuildPartial() node {
-//	return r.builder.build()
-//}
-//
-//func (r *recognizer) BuildError() node {
-//	return r.builder.build()
-//}
-//
-//var _ sugar.StateMachine[state, node, node, node] = (*recognizer)(nil)
+import (
+	"nhatp.com/go/sugar"
+	"nhatp.com/go/sugar/ebnf"
+)
+
+// ---
+// StatementBoundary = ";" | "{" .
+// Check = StatementBoundary CheckKeyword OperandName .
+// CheckKeyword = "check" .
+// ---
+
+type state int
+
+var states = struct {
+	Start          state
+	Running        state
+	UseKeyword     state
+	UseOperandName state
+	End            state
+}{
+	Start:      state(0),
+	Running:    state(1),
+	UseKeyword: state(2),
+	End:        state(4),
+}
+
+func newRecognizer() sugar.LexicalParser {
+	see := &sugar.LexemePredicate{}
+	do := &nodeBuilder{node: &node{}}
+
+	table := sugar.NewTransitionTable[state]()
+
+	table.
+		Add(states.Start, see.StatementBoundary, states.Running, do.begin).
+		Add(states.Start, see.Any, states.Start, do.failed)
+
+	table.
+		Use(states.Running, KeywordParser(), sugar.TransitionControl[state]{
+			FirstTake:     do.collectPos,
+			SuccessMoveTo: states.UseKeyword,
+			SuccessAction: invoke(do.collectKeyword),
+			ErrorMoveTo:   states.Start,
+			ErrorAction:   use(do.failed),
+		})
+
+	table.
+		Use(states.UseKeyword, ebnf.OperandNameParser(), sugar.TransitionControl[state]{
+			SuccessMoveTo: states.End,
+			SuccessAction: invoke(do.collectOperandName),
+			ErrorMoveTo:   states.Start,
+			ErrorAction:   use(do.failed),
+		})
+
+	return sugar.NewLexicalParser(table, states.Start, states.End, do)
+}

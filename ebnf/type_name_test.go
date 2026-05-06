@@ -3,55 +3,57 @@ package ebnf
 import (
 	"reflect"
 	"testing"
+
+	"nhatp.com/go/sugar/lextest"
 )
 
 func Test_TypeName(t *testing.T) {
-	cases := []lexicalParserTestCase[TypeName]{
+	cases := []lextest.ContinuousTestCase[TypeName]{
 		{
-			name:     "not found",
-			code:     `"hello"`,
-			expected: nil,
+			Name:     "not found",
+			Code:     `"hello"`,
+			Expected: nil,
 		},
 
 		{
-			name:     "invalid: missing identifier",
-			code:     `pkg.`,
-			expected: nil,
+			Name:     "invalid: missing identifier",
+			Code:     `pkg.`,
+			Expected: nil,
 		},
 
 		{
-			name: "valid: x.y",
-			code: `x.y`,
-			expected: []TypeName{
+			Name: "valid: x.y",
+			Code: `x.y`,
+			Expected: []TypeName{
 				{PackageName: new("x"), Identifier: "y"},
 			},
 		},
 
 		{
-			name: "valid: 2 positions",
-			code: `x := strconv.Atoi("1")`,
-			expected: []TypeName{
+			Name: "valid: 2 positions",
+			Code: `x := strconv.Atoi("1")`,
+			Expected: []TypeName{
 				{Identifier: "x"},
 				{PackageName: new("strconv"), Identifier: "Atoi"},
 			},
 		},
 
 		{
-			name: "valid: at . it's stop then restart at Name",
-			code: `.Name`,
-			expected: []TypeName{
+			Name: "valid: at . it's stop then restart at Name",
+			Code: `.Name`,
+			Expected: []TypeName{
 				{Identifier: "Name"},
 			},
 		},
 	}
 
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.Name, func(t *testing.T) {
 			parser := TypeNameParser()
-			result := executeLexicalParserContinuously(parser, tc.code, asType[TypeName])
+			result := lextest.ExecuteLexicalParserContinuously(parser, tc.Code, lextest.AsType[TypeName])
 
-			if !reflect.DeepEqual(result, tc.expected) {
-				t.Errorf("expected %v but got %v", tc.expected, result)
+			if !reflect.DeepEqual(result, tc.Expected) {
+				t.Errorf("expected %v but got %v", tc.Expected, result)
 			}
 		})
 	}

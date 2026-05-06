@@ -186,6 +186,10 @@
     <main class="content">
         <div>
             <h2>go-sugar Lexeme Viewer</h2>
+            <blockquote>
+                <b>Tip</b>: Paste any <code>code:base64:...</code> string and the editor will automatically decode it
+                for you
+            </blockquote>
             <div id="editor"></div>
             <div class="controls">
                 <label style="margin-right: 15px; font-size: 14px; cursor: pointer;">
@@ -208,11 +212,11 @@
     </main>
 
     <aside class="sidebar">
-        <h3>hovered token info</h3>
-        <div id="hovered-token"></div>
-
         <h3>clicked token info</h3>
         <div id="clicked-token"></div>
+        
+        <h3>hovered token info</h3>
+        <div id="hovered-token"></div>
     </aside>
 
     <script src="wasm_exec.js"></script>
@@ -222,7 +226,15 @@
         import {EditorView, basicSetup} from 'https://esm.sh/codemirror';
         import {go} from 'https://esm.sh/@codemirror/lang-go';
         import {vim} from 'https://esm.sh/@replit/codemirror-vim';
-        import {Decoration, MatchDecorator, ViewPlugin} from "https://esm.sh/@codemirror/view"
+        import {Decoration, MatchDecorator, ViewPlugin, keymap} from "https://esm.sh/@codemirror/view"
+
+        const tabConfiguration = keymap.of([{
+            key: "Tab",
+            run: (view) => {
+                view.dispatch(view.state.replaceSelection("\t"));
+                return true;
+            }
+        }]);
 
         const goSugarKeywords = ["check", "or"]
         const regex = new RegExp("\\b(" + goSugarKeywords.join("|") + ")\\b", "g")
@@ -250,6 +262,30 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const updateListener = EditorView.updateListener.of((update) => {
+                if (update.docChanged) {
+                    const doc = update.state.doc.toString();
+                    const match = doc.match(/code:base64:([A-Za-z0-9+/=]+)/);
+
+                    if (match) {
+                        try {
+                            const base64Content = match[1];
+                            const decoded = new TextDecoder("utf-8").decode(
+                                Uint8Array.from(atob(base64Content), c => c.charCodeAt(0))
+                            );
+
+                            update.view.dispatch({
+                                changes: {
+                                    from: match.index,
+                                    to: match.index + match[0].length,
+                                    insert: decoded
+                                }
+                            });
+                        } catch (err) {
+                            console.error("Failed to decode in updateListener:", err);
+                        }
+                    }
+                }
+
                 const autoCheckbox = document.getElementById('auto-generate');
                 if (autoCheckbox.checked && update.docChanged) {
                     executeLexer()
@@ -272,23 +308,25 @@
                 `package main`,
                 ``,
                 `import (`,
-                `  "fmt"`,
-                `  "strconv"`,
+                `\t"fmt"`,
+                `\t"strconv"`,
                 `)`,
                 ``,
                 `func printSum(a, b string) error {`,
-                `  x := check strconv.Atoi(a)`,
-                `  y := check strconv.Atoi(b)`,
+                `\tx := check strconv.Atoi(a)`,
+                `\ty := check strconv.Atoi(b)`,
                 ``,
-                `  fmt.Printf("%d\\n", x + y)`,
-                `  return nil`,
+                `\tfmt.Printf("%d\\n", x + y)`,
+                `\treturn nil`,
                 `}`,
                 ``,
             ]
+
             const startState = EditorState.create({
                 doc: example.join("\n"),
                 extensions: [
                     basicSetup,
+                    tabConfiguration,
                     go(),
                     goSugarKeywordsPlugin,
                     updateListener,
@@ -311,6 +349,10 @@
 
         function updateDisplay(elementId, data) {
             const container = document.getElementById(elementId);
+            if (data === "") {
+                container.innerHTML = ""
+                return
+            }
             const prettyJson = JSON.stringify(data, null, 2);
             container.innerHTML = `<pre>${prettyJson}</pre>`;
         }
@@ -368,6 +410,7 @@
 
                     span.addEventListener('mouseout', (e) => {
                         setSharedState(e.target.dataset.id, 'hovered', 'remove');
+                        updateDisplay('hovered-token', '')
                     });
 
                     if (index < parts.length - 1) {
