@@ -16,7 +16,7 @@ type lexParserNode struct {
 	operandName string
 }
 
-func (w *lexParserNode) assert(t *testing.T, code string, got node, idx int) {
+func (w *lexParserNode) assert(t *testing.T, code string, got Statement, idx int) {
 	t.Helper()
 	valid := true
 
@@ -126,8 +126,8 @@ func Test_Recognizer(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			reg := newRecognizer()
-			result := lextest.ExecuteLexicalParserContinuously(reg, tc.code, lextest.AsType[node])
+			reg := LexicalParser()
+			result := lextest.ExecuteLexicalParserContinuously(reg, tc.code, lextest.AsType[Statement])
 
 			if len(result) != len(tc.expected) {
 				t.Log(lextest.LogMessageForLexViewer(tc.code))

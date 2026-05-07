@@ -69,6 +69,7 @@ func extractLexemes(input string) (string, error) {
 		}
 
 		item := &Lexeme{
+			Token:           sugar.TokenName(v.Tok),
 			Pos:             v.Pos,
 			Lit:             v.Lit,
 			Line:            v.Line,
@@ -76,13 +77,6 @@ func extractLexemes(input string) (string, error) {
 			Offset:          v.Offset,
 			Raw:             string(content[v.Offset:end]),
 			LexemePredicate: makeLexemePredicate(v),
-		}
-
-		t := int(v.Tok)
-		if t < len(tokenNames) {
-			item.Token = tokenNames[t]
-		} else {
-			item.Token = v.Tok.String()
 		}
 
 		list = append(list, item)

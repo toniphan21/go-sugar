@@ -1,4 +1,4 @@
-package ebnf
+package gn
 
 import (
 	"reflect"
@@ -31,7 +31,7 @@ func Test_IdentifierList(t *testing.T) {
 			Name: "valid: single ident",
 			Code: `a`,
 			Expected: []IdentifierList{
-				{Identifier: []string{"a"}},
+				{Identifiers: []string{"a"}},
 			},
 		},
 
@@ -39,7 +39,7 @@ func Test_IdentifierList(t *testing.T) {
 			Name: "valid: two idents",
 			Code: `a, b`,
 			Expected: []IdentifierList{
-				{Identifier: []string{"a", "b"}},
+				{Identifiers: []string{"a", "b"}},
 			},
 		},
 
@@ -47,9 +47,9 @@ func Test_IdentifierList(t *testing.T) {
 			Name: "valid: restart every time see .",
 			Code: `t.a, t.b`,
 			Expected: []IdentifierList{
-				{Identifier: []string{"t"}},
-				{Identifier: []string{"a", "t"}},
-				{Identifier: []string{"b"}},
+				{Identifiers: []string{"t"}},
+				{Identifiers: []string{"a", "t"}},
+				{Identifiers: []string{"b"}},
 			},
 		},
 	}

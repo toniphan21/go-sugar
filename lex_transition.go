@@ -2,13 +2,13 @@ package sugar
 
 var doNothing = func(Lexeme) {}
 
-type transition[S ~int] interface {
+type transition[S comparable] interface {
 	invoke(current S, lex Lexeme) (S, func(Lexeme), bool)
 }
 
 // ---
 
-type TransitionTable[S ~int] interface {
+type TransitionTable[S comparable] interface {
 	Add(from S, event func(Lexeme) bool, to S, actions ...func(lexeme Lexeme)) TransitionTable[S]
 
 	Use(from S, parser LexicalParser, handle TransitionControl[S]) TransitionTable[S]
@@ -16,11 +16,11 @@ type TransitionTable[S ~int] interface {
 	Invoke(current S, lex Lexeme) (S, func(lex Lexeme))
 }
 
-func NewTransitionTable[S ~int]() TransitionTable[S] {
+func NewTransitionTable[S comparable]() TransitionTable[S] {
 	return &transitionTableImpl[S]{}
 }
 
-type transitionTableImpl[S ~int] struct {
+type transitionTableImpl[S comparable] struct {
 	transitions []transition[S]
 }
 
@@ -54,7 +54,7 @@ func (t *transitionTableImpl[S]) Invoke(current S, lex Lexeme) (S, func(lex Lexe
 
 // ---
 
-type nodeTransition[S ~int] struct {
+type nodeTransition[S comparable] struct {
 	from    S
 	event   func(lex Lexeme) bool
 	to      S
@@ -79,7 +79,7 @@ func (t *nodeTransition[S]) invoke(current S, lex Lexeme) (S, func(lex Lexeme), 
 
 // ---
 
-type TransitionControl[S ~int] struct {
+type TransitionControl[S comparable] struct {
 	FirstTake     func(lex Lexeme)
 	SuccessMoveTo S
 	SuccessAction func(data any, lex Lexeme)
@@ -87,7 +87,7 @@ type TransitionControl[S ~int] struct {
 	ErrorAction   func(data any, lex Lexeme)
 }
 
-type lexicalParserTransition[S ~int] struct {
+type lexicalParserTransition[S comparable] struct {
 	from     S
 	parser   LexicalParser
 	control  TransitionControl[S]
