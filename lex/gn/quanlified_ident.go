@@ -18,14 +18,18 @@ import (
 
 type TypeName = qualifiedIdent
 
+const TypeNameParserID = "lex/gn.TypeName"
+
 func TypeNameParser() sugar.LexicalParser {
-	return newQualifiedIdentParser("lex/gn.TypeName")
+	return newQualifiedIdentParser(TypeNameParserID)
 }
 
 type OperandName = qualifiedIdent
 
+const OperandNameParserID = "lex/gn.OperandName"
+
 func OperandNameParser() sugar.LexicalParser {
-	return newQualifiedIdentParser("lex/gn.OperandName")
+	return newQualifiedIdentParser(OperandNameParserID)
 }
 
 type qualifiedIdent struct {

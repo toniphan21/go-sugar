@@ -8,8 +8,9 @@ import (
 
 // ---
 // StatementBoundary = ";" | "{" .
-// Check = StatementBoundary CheckKeyword OperandName .
-// CheckKeyword = "check" .
+// IdentifierLHS = IdentifierList ":=" .
+//
+// Check = StatementBoundary [ IdentifierLHS ] "check" OperandName .
 // ---
 
 type Statement struct {
@@ -20,8 +21,10 @@ type Statement struct {
 	operandName string
 }
 
+const LexicalParserID = "sugars/check.LexicalParser"
+
 func LexicalParser() sugar.LexicalParser {
-	const start, running, useKeyword, end = "start", "running", "use-keyword", "end"
+	const start, running, expectCheck, afterCheck, end = "start", "running", "expect-check", "after-check", "end"
 	see := &sugar.LexemePredicate{}
 
 	builder := sugar.NewNodeBuilder[Statement]().OnBuild(func(n *Statement, ok bool) {
@@ -43,6 +46,9 @@ func LexicalParser() sugar.LexicalParser {
 		}
 	})
 
+	keywordParser := lex.KeywordParser("check")
+	identifierLHSParser := lex.IdentifierLHSParser()
+
 	table := sugar.NewTransitionTable[string]()
 
 	table.
@@ -50,20 +56,39 @@ func LexicalParser() sugar.LexicalParser {
 		Add(start, see.Any, start, doFail)
 
 	table.
-		Use(running, lex.KeywordParser("check"), sugar.TransitionControl[string]{
-			FirstTake:     doCollectPos,
-			SuccessMoveTo: useKeyword,
+		Longest(running, sugar.TransitionControl[string]{
+			FirstTake:   doCollectPos,
+			ErrorMoveTo: start,
+			ErrorAction: doPropagateFail,
+			WhenSuccess: func(p sugar.LexicalParser, d any, l sugar.Lexeme) string {
+				switch {
+				case p.Is(keywordParser):
+					return afterCheck
+
+				case p.Is(identifierLHSParser):
+					return expectCheck
+
+				default:
+					doFail(l)
+					return start
+				}
+			},
+		}, keywordParser, identifierLHSParser)
+
+	table.
+		Use(expectCheck, keywordParser, sugar.TransitionControl[string]{
+			SuccessMoveTo: afterCheck,
 			ErrorMoveTo:   start,
 			ErrorAction:   doPropagateFail,
 		})
 
 	table.
-		Use(useKeyword, gn.OperandNameParser(), sugar.TransitionControl[string]{
+		Use(afterCheck, gn.OperandNameParser(), sugar.TransitionControl[string]{
 			SuccessMoveTo: end,
 			SuccessAction: doCollectOperandName,
 			ErrorMoveTo:   start,
 			ErrorAction:   doPropagateFail,
 		})
 
-	return sugar.NewLexicalParser("sugars/check.LexicalParser", table, start, end, builder)
+	return sugar.NewLexicalParser(LexicalParserID, table, start, end, builder).Debug()
 }

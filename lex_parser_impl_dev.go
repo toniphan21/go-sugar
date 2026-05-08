@@ -2,6 +2,8 @@
 
 package sugar
 
+import "fmt"
+
 type NodeBuilderDev interface {
 	SetName(string)
 
@@ -9,21 +11,31 @@ type NodeBuilderDev interface {
 }
 
 type lexicalParserImpl[S comparable, B LexicalNodeBuilder[N], N any] struct {
-	name         string
+	id           string
 	table        TransitionTable[S]
 	current      S
 	initialState S
 	endState     S
 	consumed     int
 	builder      B
+	debug        bool
 }
 
 func (p *lexicalParserImpl[S, B, N]) Debug() LexicalParser {
 	if d, ok := any(p.builder).(NodeBuilderDev); ok {
 		d.Debug()
 	}
+	p.debug = true
 
 	return p
+}
+
+func (p *lexicalParserImpl[S, B, N]) ID() string {
+	return p.id
+}
+
+func (p *lexicalParserImpl[S, B, N]) Is(parser LexicalParser) bool {
+	return p.ID() == parser.ID()
 }
 
 func (p *lexicalParserImpl[S, B, N]) Reset() {
@@ -32,14 +44,36 @@ func (p *lexicalParserImpl[S, B, N]) Reset() {
 	p.builder.Reset()
 }
 
-func (p *lexicalParserImpl[S, B, N]) Done(lex Lexeme) bool {
-	next, action := p.table.Invoke(p.current, lex)
+func (p *lexicalParserImpl[S, B, N]) Done(lexemes []Lexeme) bool {
+	i := 0
+	for i < len(lexemes) {
+		next, action, consumed := p.table.Invoke(p.current, lexemes[i:])
 
-	p.consumed++
-	p.current = next
-	action(lex)
+		p.current = next
+		action(lexemes[i])
 
-	return p.current == p.endState
+		if consumed <= 0 {
+			consumed = 1
+		}
+		p.consumed += consumed
+
+		if p.debug {
+			fmt.Printf("%v[%v] consumed %d\n", p.id, p.current, p.consumed)
+		}
+		i += consumed
+
+		if p.current == p.endState {
+			if p.debug {
+				fmt.Printf("%v[%v]->[%v]\n", p.id, p.current, p.endState)
+			}
+			return true
+		}
+	}
+
+	if p.debug {
+		fmt.Printf("%v[%v]: not done yet\n", p.id, p.current)
+	}
+	return false
 }
 
 func (p *lexicalParserImpl[S, B, N]) Result() (any, bool) {
@@ -51,18 +85,18 @@ func (p *lexicalParserImpl[S, B, N]) Consumed() int {
 }
 
 func NewLexicalParser[S comparable, B LexicalNodeBuilder[N], N any](
-	name string,
+	id string,
 	transitionTable TransitionTable[S],
 	initialState S,
 	endState S,
 	builder B,
 ) LexicalParser {
 	if d, ok := any(builder).(NodeBuilderDev); ok {
-		d.SetName(name)
+		d.SetName(id)
 	}
 
 	return &lexicalParserImpl[S, B, N]{
-		name:         name,
+		id:           id,
 		table:        transitionTable,
 		current:      initialState,
 		initialState: initialState,

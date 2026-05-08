@@ -34,3 +34,11 @@ func (p *LexemePredicate) Period(lex Lexeme) bool {
 func (p *LexemePredicate) Any(lex Lexeme) bool {
 	return true
 }
+
+func (p *LexemePredicate) Assign(lex Lexeme) bool {
+	return lex.Tok == token.ASSIGN
+}
+
+func (p *LexemePredicate) Define(lex Lexeme) bool {
+	return lex.Tok == token.DEFINE
+}

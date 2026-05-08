@@ -14,6 +14,8 @@ type IdentifierList struct {
 	Identifiers []string
 }
 
+const IdentifierListParserID = "lex/gn.IdentifierList"
+
 func IdentifierListParser() sugar.LexicalParser {
 	const start, running, expectIdent, end = "start", "running", "expect-ident", "end"
 	see := &sugar.LexemePredicate{}
@@ -32,5 +34,5 @@ func IdentifierListParser() sugar.LexicalParser {
 		Add(expectIdent, see.Ident, running, doCollectIdent).
 		Add(expectIdent, see.IsNotIdent, end, doFail)
 
-	return sugar.NewLexicalParser("lex/gn.IdentifierList", table, start, end, builder)
+	return sugar.NewLexicalParser(IdentifierListParserID, table, start, end, builder)
 }

@@ -11,9 +11,13 @@ type LexicalNodeBuilder[N any] interface {
 type LexicalParser interface {
 	Debug() LexicalParser
 
+	ID() string
+
+	Is(parser LexicalParser) bool
+
 	Reset()
 
-	Done(lex Lexeme) bool
+	Done(lexemes []Lexeme) bool
 
 	Result() (any, bool)
 

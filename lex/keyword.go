@@ -6,6 +6,8 @@ type Keyword struct {
 	Pos sugar.Lexeme
 }
 
+const KeywordParserID = "lex.Keyword"
+
 func KeywordParser(keyword string) sugar.LexicalParser {
 	const start, end = "start", "end"
 	see := &sugar.LexemePredicate{}
@@ -20,5 +22,5 @@ func KeywordParser(keyword string) sugar.LexicalParser {
 		Add(start, see.IdentMatch(keyword), end, doCollectPos).
 		Add(start, see.Any, end, doFail)
 
-	return sugar.NewLexicalParser("lex.Keyword", table, start, end, builder)
+	return sugar.NewLexicalParser(KeywordParserID, table, start, end, builder)
 }

@@ -27,13 +27,21 @@ func (w *lexParserNode) assert(t *testing.T, code string, got Statement, idx int
 		valid = false
 	}
 
-	if want.pos != int(got.pos.Pos) {
-		t.Errorf("index %d: got pos=%d, want %d", idx, got.pos.Pos, want.pos)
+	gotPos := -1
+	if got.pos != nil {
+		gotPos = int(got.pos.Pos)
+	}
+	if want.pos != gotPos {
+		t.Errorf("index %d: got pos=%d, want %d", idx, gotPos, want.pos)
 		valid = false
 	}
 
-	if want.end != int(got.end.Pos) {
-		t.Errorf("index %d: got end=%d, want %d", idx, got.end.Pos, want.pos)
+	gotEnd := -1
+	if got.end != nil {
+		gotEnd = int(got.end.Pos)
+	}
+	if want.end != gotEnd {
+		t.Errorf("index %d: got end=%d, want %d", idx, gotEnd, want.pos)
 		valid = false
 	}
 
@@ -122,12 +130,57 @@ func Test_Recognizer(t *testing.T) {
 				},
 			},
 		},
+
+		{
+			name: "valid: 1 line with IdentifierLHS",
+			code: makeCode(
+				`func test() {`,
+				`	x := check doSomething()`,
+				`}`,
+			),
+			expected: []lexParserNode{
+				{
+					completed:   true,
+					pos:         16, // x
+					end:         38, // (
+					operandPkg:  "",
+					operandName: "doSomething",
+				},
+			},
+		},
+
+		{
+			name: "valid: 2 lines with different paths",
+			code: makeCode(
+				`func test() {`,
+				`	check path.Resolve("/")`,
+				`	x := check doSomething()`,
+				`}`,
+			),
+			expected: []lexParserNode{
+				{
+					completed:   true,
+					pos:         16, // check
+					end:         34, // (
+					operandPkg:  "path",
+					operandName: "Resolve",
+				},
+
+				{
+					completed:   true,
+					pos:         41, // x
+					end:         63, // (
+					operandPkg:  "",
+					operandName: "doSomething",
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			reg := LexicalParser()
-			result := lextest.ExecuteLexicalParserContinuously(reg, tc.code, lextest.AsType[Statement])
+			result := lextest.ExecuteLexicalParserContinuouslyWithCheckpoint(reg, tc.code, lextest.AsType[Statement])
 
 			if len(result) != len(tc.expected) {
 				t.Log(lextest.LogMessageForLexViewer(tc.code))

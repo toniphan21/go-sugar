@@ -24,20 +24,47 @@ type ContinuousTestCase[N any] struct {
 }
 
 func ExecuteLexicalParserContinuously[P sugar.LexicalParser, N any](parser P, code string, as func(in any) (N, bool)) []N {
+	return ExecuteLexicalParserContinuouslyWithCheckpoint(parser, code, as)
+}
+
+//func ExecuteLexicalParserContinuously[P sugar.LexicalParser, N any](parser P, code string, as func(in any) (N, bool)) []N {
+//	lexemes := sugar.Lex([]byte(code))
+//
+//	var result []N
+//	for _, v := range lexemes {
+//		if parser.Done(v) {
+//			item, ok := parser.Result()
+//			if ok {
+//				node, ok := as(item)
+//				if ok {
+//					result = append(result, node)
+//				}
+//			}
+//			parser.Reset()
+//		}
+//	}
+//	return result
+//}
+
+func ExecuteLexicalParserContinuouslyWithCheckpoint[P sugar.LexicalParser, N any](parser P, code string, as func(in any) (N, bool)) []N {
 	lexemes := sugar.Lex([]byte(code))
 
 	var result []N
-	for _, v := range lexemes {
-		if parser.Done(v) {
+	offset := 0
+	for offset < len(lexemes) {
+		slice := lexemes[offset:]
+
+		if parser.Done(slice) {
 			item, ok := parser.Result()
 			if ok {
-				node, ok := as(item)
-				if ok {
+				node, valid := as(item)
+				if valid {
 					result = append(result, node)
 				}
 			}
-			parser.Reset()
 		}
+		offset += parser.Consumed()
+		parser.Reset()
 	}
 	return result
 }
