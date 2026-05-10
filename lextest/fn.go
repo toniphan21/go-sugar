@@ -24,29 +24,6 @@ type ContinuousTestCase[N any] struct {
 }
 
 func ExecuteLexicalParserContinuously[P sugar.LexicalParser, N any](parser P, code string, as func(in any) (N, bool)) []N {
-	return ExecuteLexicalParserContinuouslyWithCheckpoint(parser, code, as)
-}
-
-//func ExecuteLexicalParserContinuously[P sugar.LexicalParser, N any](parser P, code string, as func(in any) (N, bool)) []N {
-//	lexemes := sugar.Lex([]byte(code))
-//
-//	var result []N
-//	for _, v := range lexemes {
-//		if parser.Done(v) {
-//			item, ok := parser.Result()
-//			if ok {
-//				node, ok := as(item)
-//				if ok {
-//					result = append(result, node)
-//				}
-//			}
-//			parser.Reset()
-//		}
-//	}
-//	return result
-//}
-
-func ExecuteLexicalParserContinuouslyWithCheckpoint[P sugar.LexicalParser, N any](parser P, code string, as func(in any) (N, bool)) []N {
 	lexemes := sugar.Lex([]byte(code))
 
 	var result []N
@@ -73,8 +50,4 @@ func FormatCodeForLexViewer(code string) string {
 	encoded := base64.StdEncoding.EncodeToString([]byte(code))
 
 	return fmt.Sprintf("code:base64:%s", encoded)
-}
-
-func LogMessageForLexViewer(code string) string {
-	return fmt.Sprintf("copy line below to tools/lexeme-viewer for debugging\n%v\n", FormatCodeForLexViewer(code))
 }

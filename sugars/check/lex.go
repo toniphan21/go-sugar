@@ -3,22 +3,21 @@ package check
 import (
 	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/lex"
-	"nhatp.com/go/sugar/lex/gn"
 )
 
 // ---
 // StatementBoundary = ";" | "{" .
 // IdentifierLHS = IdentifierList ":=" .
+// CallExpr = SelectorPath CallSuffix .
 //
-// Check = StatementBoundary [ IdentifierLHS ] "check" OperandName .
+// Check = StatementBoundary [ IdentifierLHS ] "check" CallExpr .
 // ---
 
 type Statement struct {
 	isCompleted bool
 	pos         *sugar.Lexeme
 	end         *sugar.Lexeme
-	operandPkg  *string
-	operandName string
+	identifiers []string
 }
 
 const LexicalParserID = "sugars/check.LexicalParser"
@@ -38,12 +37,11 @@ func LexicalParser() sugar.LexicalParser {
 	doCollectPos := builder.Collect("Pos", func(n *Statement, l sugar.Lexeme) {
 		n.pos = &l
 	})
-	doCollectOperandName := builder.CollectInner("OperandName", func(n *Statement, d any, l sugar.Lexeme) {
-		if data, ok := d.(gn.OperandName); ok {
-			n.operandPkg = data.PackageName
-			n.operandName = data.Identifier
-			n.end = &l
-		}
+	doCollectAfterCheck := builder.CollectInner("AfterCheck", func(n *Statement, d any, l sugar.Lexeme) {
+		sugar.CollectBuilderDataOrFail(builder, d, l, func(v lex.CallExpr) {
+			n.identifiers = v.Identifiers
+			n.end = &v.CallEnd
+		})
 	})
 
 	keywordParser := lex.KeywordParser("check")
@@ -60,17 +58,17 @@ func LexicalParser() sugar.LexicalParser {
 			FirstTake:   doCollectPos,
 			ErrorMoveTo: start,
 			ErrorAction: doPropagateFail,
-			WhenSuccess: func(p sugar.LexicalParser, d any, l sugar.Lexeme) string {
+			WhenSuccess: func(p sugar.LexicalParser, d any, l sugar.Lexeme) (string, int) {
 				switch {
 				case p.Is(keywordParser):
-					return afterCheck
+					return afterCheck, 0
 
 				case p.Is(identifierLHSParser):
-					return expectCheck
+					return expectCheck, 0
 
 				default:
 					doFail(l)
-					return start
+					return start, 0
 				}
 			},
 		}, keywordParser, identifierLHSParser)
@@ -83,12 +81,13 @@ func LexicalParser() sugar.LexicalParser {
 		})
 
 	table.
-		Use(afterCheck, gn.OperandNameParser(), sugar.TransitionControl[string]{
-			SuccessMoveTo: end,
-			SuccessAction: doCollectOperandName,
-			ErrorMoveTo:   start,
-			ErrorAction:   doPropagateFail,
+		Use(afterCheck, lex.CallExprParser(), sugar.TransitionControl[string]{
+			SuccessMoveTo:  end,
+			SuccessAction:  doCollectAfterCheck,
+			SuccessPutBack: 1, // CallExpr ends With StatementBoundary which is a start point so we need to putback
+			ErrorMoveTo:    start,
+			ErrorAction:    doPropagateFail,
 		})
 
-	return sugar.NewLexicalParser(LexicalParserID, table, start, end, builder).Debug()
+	return sugar.NewLexicalParser(LexicalParserID, table, start, end, builder)
 }

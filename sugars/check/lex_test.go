@@ -1,6 +1,8 @@
 package check
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 
 	"nhatp.com/go/sugar/lextest"
@@ -12,19 +14,12 @@ type lexParserNode struct {
 	completed   bool
 	pos         int
 	end         int
-	operandPkg  string
-	operandName string
+	identifiers []string
 }
 
-func (w *lexParserNode) assert(t *testing.T, code string, got Statement, idx int) {
-	t.Helper()
-	valid := true
-
-	want := w
-
+func lexParserNodeComparison(want lexParserNode, got Statement) (string, bool) {
 	if want.completed != got.isCompleted {
-		t.Errorf("index %d: got isCompleted=%v, want %v", idx, got.isCompleted, want.completed)
-		valid = false
+		return fmt.Sprintf("got isCompleted=%v, want %v", got.isCompleted, want.completed), false
 	}
 
 	gotPos := -1
@@ -32,8 +27,7 @@ func (w *lexParserNode) assert(t *testing.T, code string, got Statement, idx int
 		gotPos = int(got.pos.Pos)
 	}
 	if want.pos != gotPos {
-		t.Errorf("index %d: got pos=%d, want %d", idx, gotPos, want.pos)
-		valid = false
+		return fmt.Sprintf("got pos=%d, want %d", gotPos, want.pos), false
 	}
 
 	gotEnd := -1
@@ -41,27 +35,13 @@ func (w *lexParserNode) assert(t *testing.T, code string, got Statement, idx int
 		gotEnd = int(got.end.Pos)
 	}
 	if want.end != gotEnd {
-		t.Errorf("index %d: got end=%d, want %d", idx, gotEnd, want.pos)
-		valid = false
+		return fmt.Sprintf("got end=%d, want %d", gotEnd, want.pos), false
 	}
 
-	gOP := ""
-	if got.operandPkg != nil {
-		gOP = *got.operandPkg
+	if !reflect.DeepEqual(want.identifiers, got.identifiers) {
+		return fmt.Sprintf("got identifiers=%v, want %v", got.identifiers, want.identifiers), false
 	}
-	if want.operandPkg != gOP {
-		t.Errorf("index %d: got operandPkg=%v, want %v", idx, got.operandPkg, want.operandPkg)
-		valid = false
-	}
-
-	if want.operandName != got.operandName {
-		t.Errorf("index %d: got operandName=%v, want %v", idx, got.operandName, want.operandName)
-		valid = false
-	}
-
-	if !valid {
-		t.Log(lextest.LogMessageForLexViewer(code))
-	}
+	return "", true
 }
 
 type lexParserTestCase struct {
@@ -99,9 +79,8 @@ func Test_Recognizer(t *testing.T) {
 				{
 					completed:   true,
 					pos:         16, // check
-					end:         34, // (
-					operandPkg:  "strconv",
-					operandName: "Atoi",
+					end:         41, // ;
+					identifiers: []string{"strconv", "Atoi"},
 				},
 			},
 		},
@@ -118,15 +97,14 @@ func Test_Recognizer(t *testing.T) {
 				{
 					completed:   true,
 					pos:         16, // check
-					end:         34, // (
-					operandPkg:  "strconv",
-					operandName: "Atoi",
+					end:         41, // ;
+					identifiers: []string{"strconv", "Atoi"},
 				},
 				{
 					completed:   true,
 					pos:         43, // check
-					end:         60, // (
-					operandName: "doSomething",
+					end:         62, // ;
+					identifiers: []string{"doSomething"},
 				},
 			},
 		},
@@ -142,9 +120,8 @@ func Test_Recognizer(t *testing.T) {
 				{
 					completed:   true,
 					pos:         16, // x
-					end:         38, // (
-					operandPkg:  "",
-					operandName: "doSomething",
+					end:         40, // ;
+					identifiers: []string{"doSomething"},
 				},
 			},
 		},
@@ -154,24 +131,22 @@ func Test_Recognizer(t *testing.T) {
 			code: makeCode(
 				`func test() {`,
 				`	check path.Resolve("/")`,
-				`	x := check doSomething()`,
+				`	x := check svc.Field.DoSomething()`,
 				`}`,
 			),
 			expected: []lexParserNode{
 				{
 					completed:   true,
 					pos:         16, // check
-					end:         34, // (
-					operandPkg:  "path",
-					operandName: "Resolve",
+					end:         39, // ;
+					identifiers: []string{"path", "Resolve"},
 				},
 
 				{
 					completed:   true,
 					pos:         41, // x
-					end:         63, // (
-					operandPkg:  "",
-					operandName: "doSomething",
+					end:         75, // ;
+					identifiers: []string{"svc", "Field", "DoSomething"},
 				},
 			},
 		},
@@ -180,16 +155,9 @@ func Test_Recognizer(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			reg := LexicalParser()
-			result := lextest.ExecuteLexicalParserContinuouslyWithCheckpoint(reg, tc.code, lextest.AsType[Statement])
+			result := lextest.ExecuteLexicalParserContinuously(reg, tc.code, lextest.AsType[Statement])
 
-			if len(result) != len(tc.expected) {
-				t.Log(lextest.LogMessageForLexViewer(tc.code))
-				t.Errorf("len(result) = %d, want %d", len(result), len(tc.expected))
-			}
-
-			for i, v := range result {
-				tc.expected[i].assert(t, tc.code, v, i)
-			}
+			lextest.AssertNodes(t, tc.code, tc.expected, result, lexParserNodeComparison)
 		})
 	}
 }

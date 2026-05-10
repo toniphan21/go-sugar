@@ -2,6 +2,14 @@ package sugar
 
 import "go/token"
 
+func CollectBuilderDataOrFail[N, D any](builder *NodeBuilder[N], data any, lex Lexeme, fn func(D)) {
+	if v, ok := data.(D); ok {
+		fn(v)
+	} else {
+		builder.Fail(lex)
+	}
+}
+
 type LexemePredicate struct {
 }
 
@@ -41,4 +49,12 @@ func (p *LexemePredicate) Assign(lex Lexeme) bool {
 
 func (p *LexemePredicate) Define(lex Lexeme) bool {
 	return lex.Tok == token.DEFINE
+}
+
+func (p *LexemePredicate) LeftParen(lex Lexeme) bool {
+	return lex.Tok == token.LPAREN
+}
+
+func (p *LexemePredicate) RightParen(lex Lexeme) bool {
+	return lex.Tok == token.RPAREN
 }

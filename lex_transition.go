@@ -11,6 +11,8 @@ type transition[S comparable] interface {
 // ---
 
 type TransitionTable[S comparable] interface {
+	Route(from S, handler func(lex Lexeme) (S, bool)) TransitionTable[S]
+
 	Add(from S, event func(Lexeme) bool, to S, actions ...func(lexeme Lexeme)) TransitionTable[S]
 
 	Use(from S, parser LexicalParser, handle TransitionControl[S]) TransitionTable[S]
@@ -26,6 +28,14 @@ func NewTransitionTable[S comparable]() TransitionTable[S] {
 
 type transitionTableImpl[S comparable] struct {
 	transitions []transition[S]
+}
+
+func (t *transitionTableImpl[S]) Route(from S, handler func(lex Lexeme) (S, bool)) TransitionTable[S] {
+	t.transitions = append(t.transitions, &routeTransition[S]{
+		from:    from,
+		handler: handler,
+	})
+	return t
 }
 
 func (t *transitionTableImpl[S]) Add(from S, event func(Lexeme) bool, to S, actions ...func(lexeme Lexeme)) TransitionTable[S] {
@@ -70,6 +80,25 @@ func (t *transitionTableImpl[S]) Invoke(current S, lexemes []Lexeme) (S, func(le
 
 // ---
 
+type routeTransition[S comparable] struct {
+	from    S
+	handler func(lex Lexeme) (S, bool)
+}
+
+func (t *routeTransition[S]) reset() {
+}
+
+func (t *routeTransition[S]) invoke(current S, lexemes []Lexeme) (S, func(lex Lexeme), int, bool) {
+	if t.from == current && len(lexemes) != 0 && t.handler != nil {
+		if dest, ok := t.handler(lexemes[0]); ok {
+			return dest, doNothing, 1, true
+		}
+	}
+	return current, doNothing, 0, false
+}
+
+// ---
+
 type nodeTransition[S comparable] struct {
 	from    S
 	event   func(lex Lexeme) bool
@@ -84,7 +113,7 @@ func (t *nodeTransition[S]) invoke(current S, lexemes []Lexeme) (S, func(lex Lex
 	if t.from == current && len(lexemes) != 0 && t.event(lexemes[0]) {
 		return t.to, t.wrapAction(), 1, true
 	}
-	return current, func(Lexeme) {}, 0, false
+	return current, doNothing, 0, false
 }
 
 func (t *nodeTransition[S]) wrapAction() func(Lexeme) {
@@ -101,37 +130,39 @@ func (t *nodeTransition[S]) wrapAction() func(Lexeme) {
 type TransitionControl[S comparable] struct {
 	FirstTake func(lex Lexeme)
 
-	WhenSuccess   func(p LexicalParser, d any, l Lexeme) S
-	SuccessMoveTo S
-	SuccessAction func(data any, lex Lexeme)
+	WhenSuccess    func(p LexicalParser, d any, l Lexeme) (S, int)
+	SuccessPutBack int
+	SuccessMoveTo  S
+	SuccessAction  func(data any, lex Lexeme)
 
-	WhenError   func(p LexicalParser, d any, l Lexeme) S
-	ErrorMoveTo S
-	ErrorAction func(data any, lex Lexeme)
+	WhenError    func(p LexicalParser, d any, l Lexeme) (S, int)
+	ErrorPutBack int
+	ErrorMoveTo  S
+	ErrorAction  func(data any, lex Lexeme)
 }
 
-func (c TransitionControl[S]) handleSuccess(parser LexicalParser, data any, lex Lexeme) (S, func(lex Lexeme), bool) {
+func (c TransitionControl[S]) handleSuccess(parser LexicalParser, data any, lex Lexeme) (S, func(lex Lexeme), int) {
 	if c.WhenSuccess != nil {
-		next := c.WhenSuccess(parser, data, lex)
-		return next, doNothing, true
+		next, putback := c.WhenSuccess(parser, data, lex)
+		return next, doNothing, putback
 	}
 
 	if c.SuccessAction != nil {
-		return c.SuccessMoveTo, func(lex Lexeme) { c.SuccessAction(data, lex) }, true
+		return c.SuccessMoveTo, func(lex Lexeme) { c.SuccessAction(data, lex) }, c.SuccessPutBack
 	}
-	return c.SuccessMoveTo, doNothing, true
+	return c.SuccessMoveTo, doNothing, c.SuccessPutBack
 }
 
-func (c TransitionControl[S]) handleError(parser LexicalParser, data any, lex Lexeme) (S, func(lex Lexeme), bool) {
+func (c TransitionControl[S]) handleError(parser LexicalParser, data any, lex Lexeme) (S, func(lex Lexeme), int) {
 	if c.WhenError != nil {
-		next := c.WhenError(parser, data, lex)
-		return next, doNothing, true
+		next, putback := c.WhenError(parser, data, lex)
+		return next, doNothing, putback
 	}
 
 	if c.ErrorAction != nil {
-		return c.ErrorMoveTo, func(lex Lexeme) { c.ErrorAction(data, lex) }, true
+		return c.ErrorMoveTo, func(lex Lexeme) { c.ErrorAction(data, lex) }, c.ErrorPutBack
 	}
-	return c.ErrorMoveTo, doNothing, true
+	return c.ErrorMoveTo, doNothing, c.ErrorPutBack
 }
 
 type lexicalParserTransition[S comparable] struct {
@@ -160,12 +191,12 @@ func (t *lexicalParserTransition[S]) invoke(current S, lexemes []Lexeme) (S, fun
 		data, ok := t.parser.Result()
 
 		if ok {
-			n, a, o := t.control.handleSuccess(t.parser, data, lexemes[0])
-			return n, a, 1, o
+			next, action, putback := t.control.handleSuccess(t.parser, data, lexemes[0])
+			return next, action, 1 - putback, true
 		}
 
-		n, a, o := t.control.handleError(t.parser, data, lexemes[0])
-		return n, a, 1, o
+		next, action, putback := t.control.handleError(t.parser, data, lexemes[0])
+		return next, action, 1 - putback, true
 	}
 	return current, doNothing, 1, false
 }
@@ -249,13 +280,13 @@ func (t *longestWinTransition[S]) invoke(current S, lexemes []Lexeme) (S, func(l
 	if done {
 		if parser != nil {
 			lastLex := lexemes[parser.Consumed()-1]
-			n, a, o := t.control.handleSuccess(parser, data, lastLex)
-			return n, a, parser.Consumed(), o
+			next, action, putback := t.control.handleSuccess(parser, data, lastLex)
+			return next, action, parser.Consumed() - putback, true
 		}
 
 		lastLex := lexemes[consumed-1]
-		n, a, o := t.control.handleError(nil, data, lastLex)
-		return n, a, consumed, o
+		next, action, putback := t.control.handleError(nil, data, lastLex)
+		return next, action, consumed - putback, true
 	}
 	return current, doNothing, consumed, false
 }

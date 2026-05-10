@@ -5,16 +5,18 @@ package sugar
 import "fmt"
 
 type NodeBuilder[T any] struct {
-	Error   bool
-	Node    *T
-	onBuild func(*T, bool)
-	name    string
-	debug   bool
+	Error    bool
+	Node     *T
+	onBuild  func(*T, bool)
+	counters map[string]int
+	name     string
+	debug    bool
 }
 
 func NewNodeBuilder[T any]() *NodeBuilder[T] {
 	return &NodeBuilder[T]{
-		Node: new(T),
+		Node:     new(T),
+		counters: make(map[string]int),
 	}
 }
 
@@ -29,6 +31,7 @@ func (b *NodeBuilder[T]) Debug() {
 func (b *NodeBuilder[T]) Reset() {
 	b.Error = false
 	b.Node = new(T)
+	b.counters = make(map[string]int)
 }
 
 func (b *NodeBuilder[T]) Build() (T, bool) {
@@ -42,6 +45,32 @@ func (b *NodeBuilder[T]) Build() (T, bool) {
 		fmt.Printf("%s:build: data=%#v ok=%v\n", b.name, node, ok)
 	}
 	return node, ok
+}
+
+func (b *NodeBuilder[T]) CounterInc(name string) {
+	val, have := b.counters[name]
+	if !have {
+		b.counters[name] = 1
+	} else {
+		b.counters[name] = val + 1
+	}
+}
+
+func (b *NodeBuilder[T]) CounterDec(name string) {
+	val, have := b.counters[name]
+	if !have {
+		b.counters[name] = -1
+	} else {
+		b.counters[name] = val - 1
+	}
+}
+
+func (b *NodeBuilder[T]) Counter(name string) int {
+	val, have := b.counters[name]
+	if !have {
+		return 0
+	}
+	return val
 }
 
 func (b *NodeBuilder[T]) OnBuild(fn func(*T, bool)) *NodeBuilder[T] {

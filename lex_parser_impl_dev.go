@@ -52,9 +52,6 @@ func (p *lexicalParserImpl[S, B, N]) Done(lexemes []Lexeme) bool {
 		p.current = next
 		action(lexemes[i])
 
-		if consumed <= 0 {
-			consumed = 1
-		}
 		p.consumed += consumed
 
 		if p.debug {

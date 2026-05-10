@@ -33,13 +33,13 @@ func IdentifierLHSParser() sugar.LexicalParser {
 	table := sugar.NewTransitionTable[string]()
 
 	table.Use(start, gn.IdentifierListParser(), sugar.TransitionControl[string]{
-		WhenSuccess: func(_ sugar.LexicalParser, data any, lex sugar.Lexeme) string {
+		WhenSuccess: func(_ sugar.LexicalParser, data any, lex sugar.Lexeme) (string, int) {
 			if see.Define(lex) {
 				doCollect(data, lex)
 			} else {
 				doFail(lex)
 			}
-			return end
+			return end, 0
 		},
 	})
 
