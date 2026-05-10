@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"strconv"
 
+	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/tools/lexeme-viewer/asset"
 )
 
-const DefaultPort = "39800"
-
 func main() {
+	DefaultPort := strconv.Itoa(sugar.ToolLexemeViewerDefaultPort)
+
 	resourceFS, err := fs.Sub(asset.Content, "resource")
 	if err != nil {
 		panic(err)

@@ -14,6 +14,8 @@ type lexParserNode struct {
 	completed   bool
 	pos         int
 	end         int
+	checkPos    int
+	checkEnd    int
 	identifiers []string
 }
 
@@ -22,20 +24,20 @@ func lexParserNodeComparison(want lexParserNode, got Statement) (string, bool) {
 		return fmt.Sprintf("got isCompleted=%v, want %v", got.isCompleted, want.completed), false
 	}
 
-	gotPos := -1
-	if got.pos != nil {
-		gotPos = int(got.pos.Pos)
-	}
-	if want.pos != gotPos {
-		return fmt.Sprintf("got pos=%d, want %d", gotPos, want.pos), false
+	if msg, ok := lextest.CompareOptionalPos("pos", want.pos, got.pos); !ok {
+		return msg, false
 	}
 
-	gotEnd := -1
-	if got.end != nil {
-		gotEnd = int(got.end.Pos)
+	if msg, ok := lextest.CompareOptionalPos("end", want.end, got.end); !ok {
+		return msg, false
 	}
-	if want.end != gotEnd {
-		return fmt.Sprintf("got end=%d, want %d", gotEnd, want.pos), false
+
+	if msg, ok := lextest.CompareOptionalPos("checkPos", want.checkPos, got.checkPos); !ok {
+		return msg, false
+	}
+
+	if msg, ok := lextest.CompareOptionalPos("checkEnd", want.checkEnd, got.checkEnd); !ok {
+		return msg, false
 	}
 
 	if !reflect.DeepEqual(want.identifiers, got.identifiers) {
@@ -77,9 +79,10 @@ func Test_Recognizer(t *testing.T) {
 			),
 			expected: []lexParserNode{
 				{
-					completed:   true,
-					pos:         16, // check
-					end:         41, // ;
+					completed: true,
+					pos:       16, // check
+					end:       41, // ;
+					checkPos:  16, checkEnd: 22,
 					identifiers: []string{"strconv", "Atoi"},
 				},
 			},
@@ -95,15 +98,17 @@ func Test_Recognizer(t *testing.T) {
 			),
 			expected: []lexParserNode{
 				{
-					completed:   true,
-					pos:         16, // check
-					end:         41, // ;
+					completed: true,
+					pos:       16, // check
+					end:       41, // ;
+					checkPos:  16, checkEnd: 22,
 					identifiers: []string{"strconv", "Atoi"},
 				},
 				{
-					completed:   true,
-					pos:         43, // check
-					end:         62, // ;
+					completed: true,
+					pos:       43, // check
+					end:       62, // ;
+					checkPos:  43, checkEnd: 49,
 					identifiers: []string{"doSomething"},
 				},
 			},
@@ -118,9 +123,10 @@ func Test_Recognizer(t *testing.T) {
 			),
 			expected: []lexParserNode{
 				{
-					completed:   true,
-					pos:         16, // x
-					end:         40, // ;
+					completed: true,
+					pos:       16, // x
+					end:       40, // ;
+					checkPos:  21, checkEnd: 27,
 					identifiers: []string{"doSomething"},
 				},
 			},
@@ -130,23 +136,60 @@ func Test_Recognizer(t *testing.T) {
 			name: "valid: 2 lines with different paths",
 			code: makeCode(
 				`func test() {`,
-				`	check path.Resolve("/")`,
+				`	check   path.Resolve("/")`,
 				`	x := check svc.Field.DoSomething()`,
 				`}`,
 			),
 			expected: []lexParserNode{
 				{
-					completed:   true,
-					pos:         16, // check
-					end:         39, // ;
+					completed: true,
+					pos:       16, // check
+					end:       41, // ;
+					checkPos:  16, checkEnd: 24,
 					identifiers: []string{"path", "Resolve"},
 				},
 
 				{
-					completed:   true,
-					pos:         41, // x
-					end:         75, // ;
+					completed: true,
+					pos:       43, // x
+					end:       77, // ;
+					checkPos:  48, checkEnd: 54,
 					identifiers: []string{"svc", "Field", "DoSomething"},
+				},
+			},
+		},
+
+		{
+			name: "whole codeblock",
+			code: `package example
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func test() {
+	check doSomething()
+	x := check   strconv.Atoi("123")
+
+	fmt.Println(x)
+}
+`,
+			expected: []lexParserNode{
+				{
+					completed: true,
+					pos:       63, // check
+					end:       82, // ;
+					checkPos:  63, checkEnd: 69,
+					identifiers: []string{"doSomething"},
+				},
+
+				{
+					completed: true,
+					pos:       84,  // x
+					end:       116, // ;
+					checkPos:  89, checkEnd: 97,
+					identifiers: []string{"strconv", "Atoi"},
 				},
 			},
 		},
@@ -154,8 +197,8 @@ func Test_Recognizer(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			reg := LexicalParser()
-			result := lextest.ExecuteLexicalParserContinuously(reg, tc.code, lextest.AsType[Statement])
+			parser := LexicalParser()
+			result := lextest.ExecuteLexicalParserContinuously(parser, tc.code, lextest.AsType[Statement])
 
 			lextest.AssertNodes(t, tc.code, tc.expected, result, lexParserNodeComparison)
 		})

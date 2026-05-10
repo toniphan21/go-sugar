@@ -36,6 +36,14 @@ func Test_IdentifierLHS(t *testing.T) {
 		},
 
 		{
+			Name: "valid: discard first line starts with literal",
+			Code: "1\na :=",
+			Expected: []IdentifierLHS{
+				{Identifiers: []string{"a"}},
+			},
+		},
+
+		{
 			Name: "valid: 2 idents with define",
 			Code: `a, b :=`,
 			Expected: []IdentifierLHS{

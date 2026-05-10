@@ -4,6 +4,10 @@ package sugar
 
 import "fmt"
 
+type Node interface {
+	AsSugar() (Sugar, bool)
+}
+
 type NodeBuilder[T any] struct {
 	Error    bool
 	Node     *T

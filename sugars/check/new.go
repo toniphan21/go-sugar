@@ -2,10 +2,21 @@ package check
 
 import "nhatp.com/go/sugar"
 
-func New() sugar.Sugar {
-	return &impl{}
+func New() sugar.Plugin {
+	return &pluginImpl{}
 }
 
-type impl struct{}
+const PluginID = "nhatp.com/go/sugar/sugars/check"
 
-var _ sugar.Sugar = (*impl)(nil)
+type pluginImpl struct {
+}
+
+func (i *pluginImpl) ID() string {
+	return PluginID
+}
+
+func (i *pluginImpl) LexicalParser() sugar.LexicalParser {
+	return LexicalParser()
+}
+
+var _ sugar.Plugin = (*pluginImpl)(nil)

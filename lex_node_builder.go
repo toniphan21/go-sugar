@@ -2,6 +2,10 @@
 
 package sugar
 
+type Node interface {
+	AsSugar() (Sugar, bool)
+}
+
 type NodeBuilder[T any] struct {
 	Error    bool
 	Node     *T

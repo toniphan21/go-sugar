@@ -21,6 +21,7 @@ func IdentifierLHSParser() sugar.LexicalParser {
 	builder := sugar.NewNodeBuilder[IdentifierLHS]()
 
 	doFail := builder.Fail
+	doPropagateFail := builder.FailInner
 	doCollect := builder.CollectInner("IdentifierList", func(n *IdentifierLHS, d any, l sugar.Lexeme) {
 		il, ok := d.(gn.IdentifierList)
 		if !ok {
@@ -33,6 +34,8 @@ func IdentifierLHSParser() sugar.LexicalParser {
 	table := sugar.NewTransitionTable[string]()
 
 	table.Use(start, gn.IdentifierListParser(), sugar.TransitionControl[string]{
+		ErrorMoveTo: end,
+		ErrorAction: doPropagateFail,
 		WhenSuccess: func(_ sugar.LexicalParser, data any, lex sugar.Lexeme) (string, int) {
 			if see.Define(lex) {
 				doCollect(data, lex)

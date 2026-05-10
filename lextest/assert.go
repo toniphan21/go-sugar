@@ -3,6 +3,8 @@ package lextest
 import (
 	"fmt"
 	"testing"
+
+	"nhatp.com/go/sugar"
 )
 
 func Nodes[T any](items ...T) []T {
@@ -30,5 +32,20 @@ func AssertNodes[T, E any](
 }
 
 func msgForLexViewer(code string) string {
-	return fmt.Sprintf("Tip: copy line below to tools/lexeme-viewer for debugging\n%v\n", FormatCodeForLexViewer(code))
+	return fmt.Sprintf(
+		"Tip: copy line below to tools/lexeme-viewer at http://localhost:%d for debugging\n%v\n",
+		sugar.ToolLexemeViewerDefaultPort,
+		FormatCodeForLexViewer(code),
+	)
+}
+
+func CompareOptionalPos(name string, want int, got *sugar.Lexeme) (string, bool) {
+	gp := 0
+	if got != nil {
+		gp = int(got.Pos)
+	}
+	if want != gp {
+		return fmt.Sprintf("got %v=%d, want %d", name, gp, want), false
+	}
+	return "", true
 }
