@@ -13,7 +13,7 @@ import (
 var goldenStructuralTransformMarkdownFiles embed.FS
 
 func TestGoldenStructuralTransformFiles(t *testing.T) {
-	gentest.RunEmbedGoldenFiles(t, goldenStructuralTransformMarkdownFiles, func(testCase gentest.MarkdownTestCase) {
+	gentest.RunEmbedGoldenFiles(t, goldenStructuralTransformMarkdownFiles, func(t *testing.T, testCase gentest.MarkdownTestCase) {
 		runGoldenStructuralTransformTest(t, testCase)
 	})
 }
@@ -27,7 +27,7 @@ func TestGoldenStructuralTransformFiles_Dev(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.file, func(t *testing.T) {
-			gentest.RunEmbedGoldenFile(t, goldenStructuralTransformMarkdownFiles, tc.file, func(testCase gentest.MarkdownTestCase) {
+			gentest.RunEmbedGoldenFile(t, goldenStructuralTransformMarkdownFiles, tc.file, func(t *testing.T, testCase gentest.MarkdownTestCase) {
 				runGoldenStructuralTransformTest(t, testCase)
 			})
 		})

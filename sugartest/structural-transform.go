@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	genlib "nhatp.com/go/gen-lib"
 	"nhatp.com/go/gen-lib/cli"
 	"nhatp.com/go/gen-lib/gentest"
 	"nhatp.com/go/sugar"
@@ -39,7 +40,28 @@ func RunGoldenStructuralTransformTest(t *testing.T, tc gentest.MarkdownTestCase)
 		t.Fatal("no there is no expected output, use `// golden-file: output.go` in a codeblock")
 	}
 
-	result, _ := sugar.Execute(input)
+	dir := t.TempDir()
+	err := genlib.SetupSourceCode(dir, tc.SourceFiles)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	mod, err := sugar.NewModule(dir, sugar.Config{})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	err = mod.Transform()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	f, ok := mod.File("input.gos")
+	if !ok {
+		t.Fatal("cannot find input.gos file")
+	}
+
+	result := f.StructuralTransform()
 	if !bytes.Equal(result, output) {
 		if !PrintColor {
 			cli.DisableColor()

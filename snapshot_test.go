@@ -25,7 +25,7 @@ func (m *mockSugar) StructuralTransform(source []byte, lexemes []Lexeme) []byte 
 
 var _ Sugar = (*mockSugar)(nil)
 
-func Test_doStructuralTransform(t *testing.T) {
+func Test_Snapshot_doStructuralTransform(t *testing.T) {
 	source := []byte("hello SUGAR world")
 	//                0123456789...
 	// SUGAR is at offset 6, len 5, ends at 11
@@ -38,7 +38,12 @@ func Test_doStructuralTransform(t *testing.T) {
 		},
 	}
 
-	got, _ := doStructuralTransform(source, nil, sugars)
+	ss := &Snapshot{
+		source: source,
+	}
+	ss.doStructuralTransform(sugars)
+
+	got := ss.t1output
 	want := []byte("hello REPLACED world")
 
 	if !bytes.Equal(got, want) {

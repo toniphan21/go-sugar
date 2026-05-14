@@ -1,6 +1,14 @@
 ## Structural Transform Golden Test
 
-Write something for all the whole test suite, this is shared between all test cases
+Write something for all the whole test suite, this is shared between all test cases.
+
+Usually you need a go.mod file
+
+```go.mod
+module github.com/you/repo
+
+go 1.24
+```
 
 Phase One: Structural Transform 
 

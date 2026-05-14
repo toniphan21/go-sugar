@@ -1,5 +1,13 @@
 ## Structure transformation
 
+given a go module
+
+```go.mod
+module github.com/you/repo
+
+go 1.24
+```
+
 given the input is:
 
 ```gos
@@ -11,13 +19,17 @@ import (
 	"strconv"
 )
 
-func test() {
+func test() error {
 	check doSomething()
 	
-	x := check doSomething()
-	y := check strconv.Atoi("123")
+	x := check strconv.Atoi("123")
 
-	fmt.Println(x, y)
+	fmt.Println(x)
+	return nil
+}
+
+func doSomething() error {
+	return nil
 }
 ```
 
@@ -32,12 +44,16 @@ import (
 	"strconv"
 )
 
-func test() {
+func test() error {
 	__sugar_check__(doSomething())
 	
-	x := __sugar_check__(doSomething())
-	y := __sugar_check__(strconv.Atoi("123"))
+	x := __sugar_check__(strconv.Atoi("123"))
 
-	fmt.Println(x, y)
+	fmt.Println(x)
+	return nil
+}
+
+func doSomething() error {
+	return nil
 }
 ```

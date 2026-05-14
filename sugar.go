@@ -1,16 +1,14 @@
 package sugar
 
-import (
-	"bytes"
-	"cmp"
-	"slices"
-)
+import "golang.org/x/tools/go/packages"
 
 type Sugar interface {
 	Pos() Lexeme
 	End() Lexeme
 
 	StructuralTransform(source []byte, lexemes []Lexeme) []byte
+
+	SemanticAnalysis(pkg *packages.Package, smap *SourceMap) error
 }
 
 type Plugin interface {
@@ -31,19 +29,6 @@ func Register(plugin Plugin) {
 	plugins[plugin.ID()] = plugin
 }
 
-// Execute is temporary name which triggers whole pipeline, will rename later
-func Execute(source []byte) ([]byte, *SourceMap) {
-	lexemes := Lex(source)
-	sugars := doParseSugars(lexemes)
-
-	slices.SortFunc(sugars, func(a, b Sugar) int {
-		return cmp.Compare(a.Pos().Offset, b.Pos().Offset)
-	})
-
-	output, smap := doStructuralTransform(source, lexemes, sugars)
-	return output, smap
-}
-
 func asSugar(v any) (Sugar, bool) {
 	if s, ok := v.(Sugar); ok {
 		return s, true
@@ -55,7 +40,7 @@ func asSugar(v any) (Sugar, bool) {
 	return nil, false
 }
 
-func doParseSugars(lexemes []Lexeme) []Sugar {
+func parseSugars(lexemes []Lexeme) []Sugar {
 	var sugars []Sugar
 	for _, plugin := range plugins {
 		parser := plugin.LexicalParser()
@@ -76,37 +61,4 @@ func doParseSugars(lexemes []Lexeme) []Sugar {
 		}
 	}
 	return sugars
-}
-
-func doStructuralTransform(source []byte, lexemes []Lexeme, sugars []Sugar) ([]byte, *SourceMap) {
-	out := bytes.Buffer{}
-	smap := &SourceMap{}
-	cursor := 0
-
-	for _, v := range sugars {
-		out.Write(source[cursor:v.Pos().Offset])
-
-		goStart := out.Len()
-		transformed := v.StructuralTransform(source, lexemes)
-		out.Write(transformed)
-		goEnd := out.Len()
-
-		smap.Entries = append(smap.Entries, Entry{
-			Sugar: Region{
-				Pos: Position{Offset: v.Pos().Offset},
-				End: Position{Offset: v.End().Offset},
-			},
-			Go: Region{
-				Pos: Position{Offset: goStart},
-				End: Position{Offset: goEnd},
-			},
-			Kind: KindExpand,
-		})
-
-		cursor = v.End().Offset
-	}
-
-	out.Write(source[cursor:])
-
-	return out.Bytes(), smap
 }
