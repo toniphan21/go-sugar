@@ -9,6 +9,8 @@ type Sugar interface {
 	StructuralTransform(source []byte, lexemes []Lexeme) []byte
 
 	SemanticAnalysis(pkg *packages.Package, smap *SourceMap) error
+
+	SemanticTransformer(source []byte, lexemes []Lexeme) []byte
 }
 
 type Plugin interface {

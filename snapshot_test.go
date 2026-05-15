@@ -3,6 +3,8 @@ package sugar
 import (
 	"bytes"
 	"testing"
+
+	"golang.org/x/tools/go/packages"
 )
 
 type mockSugar struct {
@@ -21,6 +23,14 @@ func (m *mockSugar) End() Lexeme {
 
 func (m *mockSugar) StructuralTransform(source []byte, lexemes []Lexeme) []byte {
 	return []byte(m.structureTransformed)
+}
+
+func (m *mockSugar) SemanticAnalysis(pkg *packages.Package, smap *SourceMap) error {
+	return nil
+}
+
+func (m *mockSugar) SemanticTransformer(source []byte, lexemes []Lexeme) []byte {
+	return nil
 }
 
 var _ Sugar = (*mockSugar)(nil)

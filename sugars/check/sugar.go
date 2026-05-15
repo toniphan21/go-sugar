@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"strings"
 
 	"golang.org/x/tools/go/packages"
 	"nhatp.com/go/sugar"
@@ -43,6 +44,31 @@ func (s *sugarImpl) StructuralTransform(source []byte, _ []sugar.Lexeme) []byte 
 	out.WriteRune('(')
 	out.Write(source[s.checkEnd.Offset:s.end.Offset])
 	out.WriteRune(')')
+
+	return out.Bytes()
+}
+
+func (s *sugarImpl) SemanticTransformer(source []byte, lexemes []sugar.Lexeme) []byte {
+	// do simple things first, we update edge cases later
+	// output:
+	// [identifiers, ] err := [checkEnd:end)\n
+	// if err != nil {<nl>
+	// <tab>return err<nl>
+	// }<nl>
+	out := bytes.Buffer{}
+
+	idents := make([]string, len(s.identifiers)+1)
+	copy(idents, s.identifiers)
+	idents[len(s.identifiers)] = "err"
+
+	out.WriteString(strings.Join(idents, ", "))
+	out.WriteString(" := ")
+	out.Write(source[s.checkEnd.Offset:s.end.Offset])
+	out.WriteRune('\n')
+	out.WriteString("if err != nil {\n")
+	out.WriteRune('\t')
+	out.WriteString("return err\n")
+	out.WriteRune('}')
 
 	return out.Bytes()
 }

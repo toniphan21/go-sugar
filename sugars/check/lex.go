@@ -67,9 +67,13 @@ func LexicalParser() sugar.LexicalParser {
 	doCollectCheckEnd := builder.Collect("CheckEnd", func(n *Statement, l sugar.Lexeme) {
 		n.checkEnd = &l
 	})
+	doCollectIdentifierLHS := builder.CollectInner("IdentifierLHS", func(n *Statement, d any, l sugar.Lexeme) {
+		sugar.CollectBuilderDataOrFail(builder, d, l, func(v lex.IdentifierLHS) {
+			n.identifiers = v.Identifiers
+		})
+	})
 	doCollectAfterCheck := builder.CollectInner("AfterCheck", func(n *Statement, d any, l sugar.Lexeme) {
 		sugar.CollectBuilderDataOrFail(builder, d, l, func(v lex.CallExpr) {
-			n.identifiers = v.Identifiers
 			n.end = &v.CallEnd
 		})
 	})
@@ -95,6 +99,7 @@ func LexicalParser() sugar.LexicalParser {
 					return afterCheck, 0
 
 				case p.Is(identifierLHSParser):
+					doCollectIdentifierLHS(d, l)
 					return expectCheck, 0
 
 				default:

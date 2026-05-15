@@ -83,7 +83,6 @@ func Test_Recognizer(t *testing.T) {
 					pos:       16, // check
 					end:       41, // ;
 					checkPos:  16, checkEnd: 22,
-					identifiers: []string{"strconv", "Atoi"},
 				},
 			},
 		},
@@ -102,14 +101,12 @@ func Test_Recognizer(t *testing.T) {
 					pos:       16, // check
 					end:       41, // ;
 					checkPos:  16, checkEnd: 22,
-					identifiers: []string{"strconv", "Atoi"},
 				},
 				{
 					completed: true,
 					pos:       43, // check
 					end:       62, // ;
 					checkPos:  43, checkEnd: 49,
-					identifiers: []string{"doSomething"},
 				},
 			},
 		},
@@ -127,7 +124,7 @@ func Test_Recognizer(t *testing.T) {
 					pos:       16, // x
 					end:       40, // ;
 					checkPos:  21, checkEnd: 27,
-					identifiers: []string{"doSomething"},
+					identifiers: []string{"x"},
 				},
 			},
 		},
@@ -146,7 +143,6 @@ func Test_Recognizer(t *testing.T) {
 					pos:       16, // check
 					end:       41, // ;
 					checkPos:  16, checkEnd: 24,
-					identifiers: []string{"path", "Resolve"},
 				},
 
 				{
@@ -154,7 +150,7 @@ func Test_Recognizer(t *testing.T) {
 					pos:       43, // x
 					end:       77, // ;
 					checkPos:  48, checkEnd: 54,
-					identifiers: []string{"svc", "Field", "DoSomething"},
+					identifiers: []string{"x"},
 				},
 			},
 		},
@@ -181,7 +177,6 @@ func test() {
 					pos:       63, // check
 					end:       82, // ;
 					checkPos:  63, checkEnd: 69,
-					identifiers: []string{"doSomething"},
 				},
 
 				{
@@ -189,7 +184,7 @@ func test() {
 					pos:       84,  // x
 					end:       116, // ;
 					checkPos:  89, checkEnd: 97,
-					identifiers: []string{"strconv", "Atoi"},
+					identifiers: []string{"x"},
 				},
 			},
 		},

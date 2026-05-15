@@ -10,10 +10,6 @@ type Env struct {
 	SugarFileExt  string
 }
 
-func (e *Env) IsGoFile(ext string) bool {
-	return ext == e.GoFileExt
-}
-
 func (e *Env) IsSugarFile(ext string) bool {
 	return ext == e.SugarFileExt
 }

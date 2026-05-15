@@ -40,7 +40,7 @@ func (s *Snapshot) doParseSugars() []Sugar {
 	return s.sugars
 }
 
-func (s *Snapshot) doStructuralTransform(sugars []Sugar) {
+func (s *Snapshot) doTransform(sugars []Sugar, fn func(Sugar, []byte, []Lexeme) []byte) ([]byte, *SourceMap) {
 	out := bytes.Buffer{}
 	smap := &SourceMap{}
 	cursor := 0
@@ -49,7 +49,7 @@ func (s *Snapshot) doStructuralTransform(sugars []Sugar) {
 		out.Write(s.source[cursor:v.Pos().Offset])
 
 		goStart := out.Len()
-		transformed := v.StructuralTransform(s.source, s.scan())
+		transformed := fn(v, s.source, s.scan())
 		out.Write(transformed)
 		goEnd := out.Len()
 
@@ -70,10 +70,30 @@ func (s *Snapshot) doStructuralTransform(sugars []Sugar) {
 
 	out.Write(s.source[cursor:])
 
+	return out.Bytes(), smap
+}
+
+func (s *Snapshot) doStructuralTransform(sugars []Sugar) {
+	out, smap := s.doTransform(sugars, func(v Sugar, s []byte, l []Lexeme) []byte {
+		return v.StructuralTransform(s, l)
+	})
+
 	smap.buildByGo()
 
-	s.t1output = out.Bytes()
+	s.t1output = out
 	s.t1smap = smap
+}
+
+func (s *Snapshot) doSemanticTransform(sugars []Sugar) {
+	out, smap := s.doTransform(sugars, func(v Sugar, s []byte, l []Lexeme) []byte {
+		return v.SemanticTransformer(s, l)
+	})
+
+	smap.buildBySugar()
+	smap.buildByGo()
+
+	s.t2output = out
+	s.t2smap = smap
 }
 
 func (s *Snapshot) structuralTransform() error {
@@ -100,11 +120,17 @@ func (s *Snapshot) semanticAnalysis(pkg *packages.Package) error {
 	return nil
 }
 
+func (s *Snapshot) semanticTransform() error {
+	s.doSemanticTransform(s.doParseSugars())
+
+	return nil
+}
+
 func (s *Snapshot) StructuralTransform() []byte {
 	return s.t1output
 }
 
-func (s *Snapshot) Transform() []byte {
+func (s *Snapshot) SemanticTransform() []byte {
 	return s.t2output
 }
 

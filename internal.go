@@ -7,11 +7,13 @@ type snapshotAPI interface {
 
 	structuralTransform() error
 
-	semanticAnalysis(pkg *packages.Package) error
-
 	StructuralTransform() []byte
 
-	Transform() []byte
+	semanticAnalysis(pkg *packages.Package) error
+
+	semanticTransform() error
+
+	SemanticTransform() []byte
 
 	SugarToGo(line, column int) (int, int, error)
 

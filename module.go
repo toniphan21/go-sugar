@@ -1,7 +1,6 @@
 package sugar
 
 import (
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"go/token"
@@ -12,8 +11,6 @@ import (
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 )
-
-var ErrCannotPerformActionOnGoFile = errors.New("cannot perform action on go file")
 
 func NewModule(path string, config Config) (*Module, error) {
 	env := config.env()
@@ -88,7 +85,7 @@ func (m *Module) DiscoverFiles() error {
 		}
 
 		ext := filepath.Ext(path)
-		if !env.IsGoFile(ext) && !env.IsSugarFile(ext) {
+		if !env.IsSugarFile(ext) {
 			return nil
 		}
 
@@ -114,18 +111,11 @@ func (m *Module) RegisterFile(relPath string) (*File, error) {
 func (m *Module) AddFile(relPath string, content []byte) (*File, error) {
 	env := m.Config.env()
 	ext := filepath.Ext(relPath)
-
-	if !env.IsGoFile(ext) && !env.IsSugarFile(ext) {
+	if !env.IsSugarFile(ext) {
 		return nil, fmt.Errorf("unsupported file extension: %s", ext)
 	}
 
-	if env.IsSugarFile(ext) {
-		file := newSugarFile(relPath, env.GoFilePath(relPath), content)
-		m.files[relPath] = file
-		return file, nil
-	}
-
-	file := newGoFile(relPath, content)
+	file := newFile(relPath, env.GoFilePath(relPath), content)
 	m.files[relPath] = file
 	return file, nil
 }
@@ -144,20 +134,39 @@ func (m *Module) HasFile(relPath string) bool {
 	return ok
 }
 
-func (m *Module) Transform() error {
-	err := m.structuralTransform()
-	if err != nil {
+func (m *Module) StructuralTransform() error {
+	for _, v := range m.files {
+		if err := v.structuralTransform(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *Module) SemanticTransform() error {
+	if err := m.StructuralTransform(); err != nil {
 		return err
 	}
 
+	if err := m.analyzeSemantic(); err != nil {
+		return err
+	}
+
+	for _, v := range m.files {
+		if err := v.semanticTransform(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *Module) analyzeSemantic() error {
 	var sugarFiles = make(map[string]*File)
 	overlay := make(map[string][]byte)
 	for p, f := range m.files {
-		if f.isSugar {
-			sugarFiles[p] = f
-			fp := filepath.Join(m.Root, f.goPath)
-			overlay[fp] = f.StructuralTransform()
-		}
+		sugarFiles[p] = f
+		fp := filepath.Join(m.Root, f.goPath)
+		overlay[fp] = f.StructuralTransform()
 	}
 
 	cfg := &packages.Config{
@@ -186,19 +195,6 @@ func (m *Module) Transform() error {
 	return nil
 }
 
-func (m *Module) structuralTransform() error {
-	for _, v := range m.files {
-		if !v.isSugar {
-			continue
-		}
-
-		if err := v.structuralTransform(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (m *Module) filePkgPath(relPath string) string {
 	dir := filepath.Dir(relPath)
 	if dir == "." {
@@ -208,94 +204,3 @@ func (m *Module) filePkgPath(relPath string) string {
 }
 
 var _ moduleAPI = (*Module)(nil)
-
-// ---
-
-func newSugarFile(relPath, goFilePath string, content []byte) *File {
-	snapshot := newSnapshot(content)
-	return &File{
-		isSugar:   true,
-		sugarPath: relPath,
-		goPath:    goFilePath,
-		snapshot:  snapshot,
-	}
-}
-
-func newGoFile(relPath string, content []byte) *File {
-	return &File{
-		isSugar: false,
-		goPath:  relPath,
-		hash:    sha256.Sum256(content),
-		content: content,
-	}
-}
-
-type File struct {
-	isSugar   bool
-	hash      [32]byte
-	content   []byte
-	sugarPath string
-	goPath    string
-	snapshot  *Snapshot
-}
-
-func (f *File) Update(content []byte) {
-	if f.isSugar {
-		f.snapshot = newSnapshot(content)
-		return
-	}
-
-	f.hash = sha256.Sum256(content)
-	f.content = content
-}
-
-func (f *File) structuralTransform() error {
-	if f.isSugar {
-		return f.snapshot.structuralTransform()
-	}
-	return ErrCannotPerformActionOnGoFile
-}
-
-func (f *File) semanticAnalysis(pkg *packages.Package) error {
-	if f.isSugar {
-		return f.snapshot.semanticAnalysis(pkg)
-	}
-	return ErrCannotPerformActionOnGoFile
-}
-
-func (f *File) StructuralTransform() []byte {
-	if f.isSugar {
-		return f.snapshot.StructuralTransform()
-	}
-	return nil
-}
-
-func (f *File) Transform() []byte {
-	if f.isSugar {
-		return f.snapshot.Transform()
-	}
-	return nil
-}
-
-func (f *File) Hash() [32]byte {
-	if f.isSugar {
-		return f.snapshot.Hash()
-	}
-	return f.hash
-}
-
-func (f *File) SugarToGo(line, column int) (int, int, error) {
-	if f.isSugar {
-		return f.snapshot.SugarToGo(line, column)
-	}
-	return line, column, nil
-}
-
-func (f *File) GoToSugar(line, column int) (int, int, error) {
-	if f.isSugar {
-		return f.snapshot.GoToSugar(line, column)
-	}
-	return line, column, nil
-}
-
-var _ fileAPI = (*File)(nil)

@@ -1,4 +1,4 @@
-## Structure Transform
+## Semantic Transform
 
 given a go module
 
@@ -7,6 +7,8 @@ module github.com/you/repo
 
 go 1.24
 ```
+
+### Without zero value in enclosing function
 
 given the input is:
 
@@ -33,7 +35,7 @@ func doSomething() error {
 }
 ```
 
-the Structural Transform output is:
+the Transform output is
 
 ```go
 // golden-file: output.go
@@ -45,9 +47,15 @@ import (
 )
 
 func test() error {
-	__sugar_check__(doSomething())
+	err := doSomething()
+if err != nil {
+	return err
+}
 	
-	x := __sugar_check__(strconv.Atoi("123"))
+	x, err := strconv.Atoi("123")
+if err != nil {
+	return err
+}
 
 	fmt.Println(x)
 	return nil
