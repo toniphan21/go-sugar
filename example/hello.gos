@@ -1,0 +1,10 @@
+package example
+
+func test() {
+	check doSomething()
+}
+
+func doSomething() error {
+	return nil
+}
+
