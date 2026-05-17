@@ -64,5 +64,9 @@ func NewLogger(filePath string, writer io.Writer, level slog.Level) (*slog.Logge
 		handlers = append(handlers, slog.NewJSONHandler(f, &slog.HandlerOptions{Level: level}))
 	}
 
-	return slog.New(&multiHandler{handlers: handlers}), f, err
+	return slog.New(NewMultiHandler(handlers...)), f, err
+}
+
+func NewMultiHandler(handlers ...slog.Handler) slog.Handler {
+	return &multiHandler{handlers: handlers}
 }

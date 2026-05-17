@@ -21,7 +21,7 @@ func goldenFile(t *testing.T, tc gentest.MarkdownTestCase, filename string) []by
 		}
 	}
 	if output == nil {
-		t.Fatalf("no there is no expected output, use `// golden-file: %d` in a codeblock", filename)
+		t.Fatalf("no there is no expected output, use `// golden-file: %v` in a codeblock", filename)
 	}
 	return output
 }
