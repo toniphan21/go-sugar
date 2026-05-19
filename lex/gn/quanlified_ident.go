@@ -16,6 +16,15 @@ import (
 // PackageName   = identifier .
 // ---
 
+/*
+Diagram(
+  Start({type:'complex'}),
+  Stack('ident'),
+  Optional(Sequence('.', 'ident')),
+  End({type:'complex'})
+)
+*/
+
 type TypeName = qualifiedIdent
 
 const TypeNameParserID = "lex/gn.TypeName"
@@ -55,7 +64,7 @@ func newQualifiedIdentParser(name string) sugar.LexicalParser {
 		}
 	})
 
-	table := sugar.NewTransitionTable[string]()
+	table := sugar.NewTransitionTable[string](name)
 
 	table.
 		Add(start, see.Ident, running, doCollect).

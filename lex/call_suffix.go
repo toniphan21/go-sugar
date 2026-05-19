@@ -10,6 +10,17 @@ import "nhatp.com/go/sugar"
 //   "(" increments depth, ")" decrements depth, CallSuffix closes when depth reaches 0 */
 // ---
 
+/*
+Diagram(
+  Start({type:'complex'}),
+  Stack('('),
+  ZeroOrMore(Sequence('*')),
+  Stack(')'),
+  Sequence(';'),
+  End({type:'complex'})
+)
+*/
+
 type CallSuffix struct {
 	Pos sugar.Lexeme
 	End sugar.Lexeme
@@ -45,7 +56,7 @@ func CallSuffixParser() sugar.LexicalParser {
 		}
 	}
 
-	table := sugar.NewTransitionTable[string]()
+	table := sugar.NewTransitionTable[string](CallExprID)
 	table.
 		Add(start, see.LeftParen, running, doBegin, doIncDeep).
 		Add(start, see.Any, end, doFail).

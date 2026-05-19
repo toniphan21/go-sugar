@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/lextest"
 )
 
@@ -189,6 +190,8 @@ func test() {
 			},
 		},
 	}
+
+	lextest.Debug(sugar.SetLogger)
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

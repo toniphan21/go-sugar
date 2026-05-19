@@ -56,7 +56,7 @@ func (n Statement) AsSugar() (sugar.Sugar, bool) {
 const LexicalParserID = "sugars/check.LexicalParser"
 
 func LexicalParser() sugar.LexicalParser {
-	const start, expectCheck, expectExpr, end = "start", "expectCheck", "expect-expr", "end"
+	const start, expectCheck, expectExpr, end = "start", "expect-check", "expect-expr", "end"
 
 	builder := sugar.NewNodeBuilder[Statement]().OnBuild(func(n *Statement, ok bool) {
 		n.isCompleted = ok
@@ -84,7 +84,7 @@ func LexicalParser() sugar.LexicalParser {
 		})
 	})
 
-	table := sugar.NewTransitionTable[string]().
+	table := sugar.NewTransitionTable[string](LexicalParserID).
 		Optional(start, lex.IdentifierLHSParser(), sugar.OptionalTransitionControl[string]{
 			FirstTake:     doBegin,
 			MoveTo:        expectCheck,

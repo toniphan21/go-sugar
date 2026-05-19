@@ -3,12 +3,51 @@
 ### Syntax
 
 ```ebnf
-StatementBoundary = ";" | "{" .
+IdentifierLHS = IdentifierList ":=" .
+CallExpr = SelectorPath CallSuffix .
 
-Check = StatementBoundary [ IdentifierList ":=" ] "check" OperandName .
+Check = [ IdentifierLHS ] "check" CallExpr .
 ```
 
-examples
+![syntax](./imgs/syntax.svg)
+
+*syntax*
+
+```
+--- /tools/railroad-diagram
+
+Diagram(
+  Start({type:'complex'}),
+  Optional('IdentifierLHS'),
+  Stack("check"),
+  Stack('CallExpr'),
+  End({type:'complex'})
+)
+```
+
+#### components
+
+![IdentifierList](/lex/gn/imgs/identifier-list.svg)
+
+*IdentifierList*
+
+![IdentifierLHS](/lex/imgs/identifier-lhs.svg)
+
+*IdentifierLHS*
+
+![SelectorPath](/lex/imgs/selector-path.svg)
+
+*SelectorPath*
+
+![CallSuffix](/lex/imgs/call-suffix.svg)
+
+*CallSuffix*
+
+![CallExpr](/lex/imgs/call-expr.svg)
+
+*CallExpr*
+
+#### examples
 ```
 func something() error {
     return nil
@@ -35,83 +74,19 @@ if err != nil {
 
 ### Lexical state machine
 
-```mermaid
-stateDiagram-v2
-    Idle --> Start: StatementBoundary<br/>
-    Idle --> Idle: Any<br/>nil
-    Start --> ExpectCheck: IDENT("check")<br/>nil
-    Start --> Target: IDENT<br/>nil
-    Start --> Idle: Any<br/>reset()
-    Target --> Target: IDENT<br/>appendVariable()
-    Target --> Target: COMMA<br/>nil
-    Target --> ExpectCheck: ASSIGN<br/>setOpAssign()
-    Target --> ExpectCheck: DEFINE<br/>setOpDefine()
-    Target --> Idle: Any<br/>reset()
-    ExpectCheck --> Expr: IDENT("check")<br/>nil
-    ExpectCheck --> Idle: Any<br/>reset()
-    Expr --> Expr: IDENT<br/>appendOperand()
-    Expr --> Expr: PERIOD<br/>appendOperand()
-    Expr --> ExprIgnore: LPAREN<br/>nil
-    Expr --> End: Boundary<br/>
-    Expr --> Idle: Any<br/>reset()
-    ExprIgnore --> ExprIgnore: any<br/>nil
-    ExprIgnore --> Expr: RPAREN<br/>nil
-    ExprIgnore --> End: Boundary<br/>nil
+![railroad-diagram](./imgs/lex.svg)
+
 ```
+--- /tools/railroad-diagram
 
-### WIP
-
-````
-next form
-
-StatementBoundary = ";" | "{" .
-
-Check = StatementBoundary [ IdentifierList ":=" ] "check" OperandName .
-
-full form
-
-```ebnf
-CheckStmt         = [ CheckResult ] "check" Expression [ "handle" CheckHandlerExpr ] .
-
-CheckResult       = CheckShortVarDecl | CheckVarDecl | CheckAssignment .
-CheckShortVarDecl = IdentifierList ":=" .
-CheckVarDecl      = "var" IdentifierList [ Type ] "=" .
-CheckAssignment   = ExpressionList "=" .
-
-CheckHandlerExpr  = Expression . /* must have type func(error) error */
+Diagram(
+  Start({type:'complex'}),
+  NonTerminal('doBegin'),
+  Optional(Stack('IdentifierLHS', NonTerminal('doCollectIdentifiers'))),
+  Comment('expect-check'),
+  Stack(NonTerminal('doCollectCheckPos'), "check"),
+  Comment('expect-expr'),
+  Stack(NonTerminal('doCollectCheckEnd'), 'CallExpr', NonTerminal('doCollectEnd')),
+  End({type:'complex'})
+)
 ```
-````
-
-````
-// group and re-use state machine - WIP
-
-```mermaid
-stateDiagram-v2
-    state Target {
-        [*] --> TargetCollect: IDENT
-        TargetCollect --> TargetCollect: IDENT<br/>appendVariable()
-        TargetCollect --> TargetCollect: COMMA
-        TargetCollect --> [*]: ASSIGN<br/>setOpAssign()
-        TargetCollect --> [*]: DEFINE<br/>setOpDefine()
-    }
-    
-    Idle --> Start: Boundary<br/>
-    Idle --> Idle: Any<br/>nil
-    Start --> ExpectCheck: IDENT("check")<br/>nil
-    Start --> Target: IDENT<br/>nil
-    Start --> Idle: Any<br/>reset()
-    Target --> ExpectCheck: ASSIGN<br/>setOpAssign()
-    Target --> ExpectCheck: DEFINE<br/>setOpDefine()
-    Target --> Idle: Any<br/>reset()
-    ExpectCheck --> Expr: IDENT("check")<br/>nil
-    ExpectCheck --> Idle: Any<br/>reset()
-    Expr --> Expr: IDENT<br/>appendOperand()
-    Expr --> Expr: PERIOD<br/>appendOperand()
-    Expr --> ExprIgnore: LPAREN<br/>nil
-    Expr --> End: Boundary<br/>
-    Expr --> Idle: Any<br/>reset()
-    ExprIgnore --> ExprIgnore: any<br/>nil
-    ExprIgnore --> Expr: RPAREN<br/>nil
-    ExprIgnore --> End: Boundary<br/>nil
-```
-````

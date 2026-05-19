@@ -10,6 +10,15 @@ import (
 // IdentifierList = identifier { "," identifier } .
 // ---
 
+/*
+Diagram(
+  Start({type:'complex'}),
+  Stack('ident'),
+  ZeroOrMore(Sequence(',', 'ident')),
+  End({type:'complex'})
+)
+*/
+
 type IdentifierList struct {
 	Identifiers []string
 }
@@ -26,11 +35,11 @@ func IdentifierListParser() sugar.LexicalParser {
 		n.Identifiers = append(n.Identifiers, l.Lit)
 	})
 
-	table := sugar.NewTransitionTable[string]().
+	table := sugar.NewTransitionTable[string](IdentifierListParserID).
 		Add(start, see.Ident, running, doCollectIdent).
 		Add(start, see.IsNotIdent, end, doFail).
 		Add(running, see.Comma, expectIdent).
-		Add(running, see.Any, end).
+		Peek(running, see.Any, end).
 		Add(expectIdent, see.Ident, running, doCollectIdent).
 		Add(expectIdent, see.IsNotIdent, end, doFail)
 

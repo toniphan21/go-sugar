@@ -9,3 +9,4 @@ const BinaryVersion = "v" + Version
 const BinaryFullName = BinaryPath + BinaryName
 
 const ToolLexemeViewerDefaultPort = 39800
+const ToolRailroadDiagramPort = 39801

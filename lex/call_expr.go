@@ -8,6 +8,15 @@ import (
 // CallExpr = SelectorPath CallSuffix .
 // ---
 
+/*
+Diagram(
+  Start({type:'complex'}),
+  Stack('SelectorPath'),
+  Stack('CallSuffix'),
+  End({type:'complex'})
+)
+*/
+
 type CallExpr struct {
 	Identifiers []string
 	CallPos     sugar.Lexeme
@@ -35,15 +44,14 @@ func CallExprParser() sugar.LexicalParser {
 		})
 	})
 
-	table := sugar.NewTransitionTable[string]()
+	table := sugar.NewTransitionTable[string](CallExprID)
 
 	table.
 		Use(start, SelectorPathParser(), sugar.TransitionControl[string]{
-			SuccessMoveTo:  running,
-			SuccessAction:  doCollectSelectorPath,
-			SuccessPutBack: 1, // SelectorPath ends with !Ident, so we putback 1 for CallSuffix to start correctly
-			ErrorMoveTo:    end,
-			ErrorAction:    doPropagateFail,
+			SuccessMoveTo: running,
+			SuccessAction: doCollectSelectorPath,
+			ErrorMoveTo:   end,
+			ErrorAction:   doPropagateFail,
 		}).
 		Use(running, CallSuffixParser(), sugar.TransitionControl[string]{
 			SuccessMoveTo: end,

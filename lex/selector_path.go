@@ -6,6 +6,15 @@ import "nhatp.com/go/sugar"
 // SelectorPath = identifier { "." identifier } .
 // ---
 
+/*
+Diagram(
+  Start({type:'complex'}),
+  Stack('ident'),
+  ZeroOrMore(Sequence('.', 'ident')),
+  End({type:'complex'})
+)
+*/
+
 type SelectorPath struct {
 	Identifiers []string
 }
@@ -22,13 +31,13 @@ func SelectorPathParser() sugar.LexicalParser {
 		n.Identifiers = append(n.Identifiers, l.Lit)
 	})
 
-	table := sugar.NewTransitionTable[string]()
+	table := sugar.NewTransitionTable[string](SelectorPathID)
 
 	table.
 		Add(start, see.Ident, expectDot, doCollect).
 		Add(start, see.Any, end, doFail).
 		Add(expectDot, see.Period, expectIdent).
-		Add(expectDot, see.Any, end).
+		Peek(expectDot, see.Any, end).
 		Add(expectIdent, see.Ident, expectDot, doCollect).
 		Add(expectIdent, see.Any, end, doFail)
 

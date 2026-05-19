@@ -1,0 +1,161 @@
+<svg class="railroad-diagram" width="1089" height="231" viewBox="0 0 1089 231" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <g transform="translate(.5 .5)">
+        <g>
+            <path d="M20 30v20m0 -10h20"></path>
+        </g>
+        <path d="M40 40h10"></path>
+        <g class="non-terminal ">
+            <path d="M50 40h0"></path>
+            <path d="M126 40h0"></path>
+            <rect x="50" y="29" width="76" height="22"></rect>
+            <text x="88" y="44">doBegin</text>
+        </g>
+        <path d="M126 40h10"></path>
+        <g>
+            <path d="M136 40h0"></path>
+            <path d="M396 80h0"></path>
+            <path d="M136 40a10 10 0 0 0 10 -10v0a10 10 0 0 1 10 -10"></path>
+            <g>
+                <path d="M156 20h220"></path>
+            </g>
+            <path d="M376 20a10 10 0 0 1 10 10v40a10 10 0 0 0 10 10"></path>
+            <path d="M136 40h20"></path>
+            <g>
+                <path d="M156 40h0"></path>
+                <path d="M156 40h10"></path>
+                <g class="terminal ">
+                    <path d="M166 40h38"></path>
+                    <path d="M328 40h38"></path>
+                    <rect x="204" y="29" width="124" height="22" rx="10" ry="10"></rect>
+                    <text x="266" y="44">IdentifierLHS</text>
+                </g>
+                <path d="M366 40a10 10 0 0 1 10 10v0a10 10 0 0 1 -10 10h-200a10 10 0 0 0 -10 10v0a10 10 0 0 0 10 10"></path>
+                <g class="non-terminal ">
+                    <path d="M166 80h10"></path>
+                    <path d="M356 80h10"></path>
+                    <rect x="176" y="69" width="180" height="22"></rect>
+                    <text x="266" y="84">doCollectIdentifiers</text>
+                </g>
+                <path d="M366 80h10"></path>
+                <path d="M376 80h0"></path>
+            </g>
+            <path d="M376 80h20"></path>
+        </g>
+        <path d="M396 80h10"></path>
+        <g class="comment ">
+            <path d="M406 80h0"></path>
+            <path d="M500 80h0"></path>
+            <text x="453" y="85" class="comment">expect-check</text>
+        </g>
+        <path d="M500 80h10"></path>
+        <path d="M510 80h10"></path>
+        <g>
+            <path d="M520 80h0"></path>
+            <path d="M520 80h10"></path>
+            <g class="non-terminal ">
+                <path d="M530 80h10"></path>
+                <path d="M696 80h10"></path>
+                <rect x="540" y="69" width="156" height="22"></rect>
+                <text x="618" y="84">doCollectCheckPos</text>
+            </g>
+            <path d="M706 80a10 10 0 0 1 10 10v0a10 10 0 0 1 -10 10h-176a10 10 0 0 0 -10 10v0a10 10 0 0 0 10 10"></path>
+            <g class="terminal ">
+                <path d="M530 120h58"></path>
+                <path d="M648 120h58"></path>
+                <rect x="588" y="109" width="60" height="22" rx="10" ry="10"></rect>
+                <text x="618" y="124">check</text>
+            </g>
+            <path d="M706 120h10"></path>
+            <path d="M716 120h0"></path>
+        </g>
+        <path d="M716 120h10"></path>
+        <path d="M726 120h10"></path>
+        <g class="comment ">
+            <path d="M736 120h0"></path>
+            <path d="M823 120h0"></path>
+            <text x="779.5" y="125" class="comment">expect-expr</text>
+        </g>
+        <path d="M823 120h10"></path>
+        <path d="M833 120h10"></path>
+        <g>
+            <path d="M843 120h0"></path>
+            <path d="M843 120h10"></path>
+            <g class="non-terminal ">
+                <path d="M853 120h10"></path>
+                <path d="M1019 120h10"></path>
+                <rect x="863" y="109" width="156" height="22"></rect>
+                <text x="941" y="124">doCollectCheckEnd</text>
+            </g>
+            <path d="M1029 120a10 10 0 0 1 10 10v0a10 10 0 0 1 -10 10h-176a10 10 0 0 0 -10 10v0a10 10 0 0 0 10 10"></path>
+            <g class="terminal ">
+                <path d="M853 160h46"></path>
+                <path d="M983 160h46"></path>
+                <rect x="899" y="149" width="84" height="22" rx="10" ry="10"></rect>
+                <text x="941" y="164">CallExpr</text>
+            </g>
+            <path d="M1029 160a10 10 0 0 1 10 10v0a10 10 0 0 1 -10 10h-176a10 10 0 0 0 -10 10v0a10 10 0 0 0 10 10"></path>
+            <g class="non-terminal ">
+                <path d="M853 200h30"></path>
+                <path d="M999 200h30"></path>
+                <rect x="883" y="189" width="116" height="22"></rect>
+                <text x="941" y="204">doCollectEnd</text>
+            </g>
+            <path d="M1029 200h10"></path>
+            <path d="M1039 200h0"></path>
+        </g>
+        <path d="M1039 200h10"></path>
+        <path d="M 1049 200 h 20 m 0 -10 v 20"></path>
+    </g>
+    <style>svg.railroad-diagram {
+        background-color: hsl(30,20%,95%);
+        }
+        svg.railroad-diagram path {
+        stroke-width: 3;
+        stroke: black;
+        fill: rgba(0,0,0,0);
+        }
+        svg.railroad-diagram text {
+        font: bold 14px monospace;
+        text-anchor: middle;
+        white-space: pre;
+        }
+        svg.railroad-diagram text.diagram-text {
+        font-size: 12px;
+        }
+        svg.railroad-diagram text.diagram-arrow {
+        font-size: 16px;
+        }
+        svg.railroad-diagram text.label {
+        text-anchor: start;
+        }
+        svg.railroad-diagram text.comment {
+        font: italic 12px monospace;
+        }
+        svg.railroad-diagram g.non-terminal text {
+        /&#42;font-style: italic;&#42;/
+        }
+        svg.railroad-diagram rect {
+        stroke-width: 3;
+        stroke: black;
+        fill: hsl(120,100%,90%);
+        }
+        svg.railroad-diagram rect.group-box {
+        stroke: gray;
+        stroke-dasharray: 10 5;
+        fill: none;
+        }
+        svg.railroad-diagram path.diagram-text {
+        stroke-width: 3;
+        stroke: black;
+        fill: white;
+        cursor: help;
+        }
+        svg.railroad-diagram g.diagram-text:hover path.diagram-text {
+        fill: #eee;
+        }
+
+        svg.railroad-diagram g.non-terminal rect {
+        fill: hsl(60,100%,90%);
+        }
+    </style>
+</svg>

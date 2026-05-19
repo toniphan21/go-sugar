@@ -18,7 +18,7 @@ func KeywordParser(keyword string) sugar.LexicalParser {
 		n.Pos = lex
 	})
 
-	table := sugar.NewTransitionTable[string]().
+	table := sugar.NewTransitionTable[string](KeywordParserID).
 		Add(start, see.IdentMatch(keyword), end, doCollectPos).
 		Add(start, see.Any, end, doFail)
 

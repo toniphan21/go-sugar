@@ -108,22 +108,19 @@ func (p *lexicalParserImpl[S, B, N]) Done(lexemes []Lexeme) bool {
 	for i < lenLex {
 		idx := i
 		from := p.current
+		debug("invoke",
+			slog.String("parser", p.id),
+			slog.String("component", "LexicalParser"),
+			slog.String("firstLex", lexemes[idx].GoString()),
+			slog.Int("lexemesLength", lenLex),
+			slog.Int("invokeLexemesIndex", idx),
+			slog.Any("from", from),
+			slog.Int("parserConsumed", p.consumed),
+		)
 		next, action, consumed := p.table.Invoke(from, lexemes[idx:])
 
 		p.current = next
 		action(lexemes[idx])
-
-		debug("invoke",
-			slog.String("parser", p.id),
-			slog.String("component", "LexicalParser"),
-			slog.Int("lexemesLength", lenLex),
-			slog.Int("invokeLexemesIndex", idx),
-			slog.Int("invokeConsumed", consumed),
-			slog.Any("from", from),
-			slog.Any("next", next),
-			slog.Int("consumed", total+consumed),
-			slog.Int("parserConsumed", p.consumed),
-		)
 
 		total += consumed
 		p.consumed += consumed
@@ -143,6 +140,18 @@ func (p *lexicalParserImpl[S, B, N]) Done(lexemes []Lexeme) bool {
 			)
 			return true
 		}
+
+		debug("invoked",
+			slog.String("parser", p.id),
+			slog.String("component", "LexicalParser"),
+			slog.Int("lexemesLength", lenLex),
+			slog.Int("invokeLexemesIndex", idx),
+			slog.Int("invokeConsumed", consumed),
+			slog.Any("from", from),
+			slog.Any("to", p.endState),
+			slog.Int("consumed", total),
+			slog.Int("parserConsumed", p.consumed),
+		)
 	}
 
 	debug("not-done-yet",
@@ -226,11 +235,15 @@ func (b *NodeBuilder[T]) Build() (T, bool) {
 	}
 
 	node := *b.Node
-	debug("build",
+	msg := "build-success"
+	if !ok {
+		msg = "build-fail"
+	}
+	debug(msg,
 		slog.String("parser", b.parserID),
+		slog.Bool("ok", ok),
 		slog.String("component", "NodeBuilder"),
 		slog.Any("node", node),
-		slog.Bool("ok", ok),
 	)
 	return node, ok
 }

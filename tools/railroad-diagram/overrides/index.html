@@ -1,0 +1,195 @@
+<!doctype html>
+<title>Railroad Diagram Generator</title>
+<link href="railroad.css" rel=stylesheet>
+<style>
+    /* latin-ext */
+    @font-face {
+        font-family: mono;
+        font-style: normal;
+        font-display: swap;
+        src: url("https://www.xanthir.com/utils/fonts/droidsansmono.otf");
+    }
+    textarea {
+        font-family: mono, monospace;
+        font-optical-sizing: auto;
+    }
+</style>
+
+<textarea class='input'>Diagram(
+  Optional('+', 'skip'),
+  Choice(0,
+    NonTerminal('name-start char'),
+    NonTerminal('escape')),
+  ZeroOrMore(
+    Choice(0,
+      NonTerminal('name char'),
+      NonTerminal('escape'))))</textarea>
+<div class='output-image'></div>
+<textarea class='output-text' readonly></textarea>
+<ul class=info>
+    <li><label><input type=number min=1 value=8 width=3 id=option-vs> Minimum vertical separation between lines (in px)?</label>
+    <li><label><input type=number min=2 value=10 id=option-ar> Arc radius for corners (in px)?</label>
+    <li><label><input type=number min=1 value=8.5 step=.5 id=option-char-width> Average width of characters in "normal" (Terminal/NonTerminal) text (in px)?</label>
+    <li><label><input type=number min=1 value=7 step=.5 id=option-comment-width> Average width of characters in Comment text (in px)?</label>
+    <li><label>
+        <select id=option-alignment>
+            <option>center</option>
+            <option>left</option>
+            <option>right</option>
+        </select>
+        How should items be aligned when there's more space than they need?</label>
+    <li><label><input type=checkbox id=option-odd-stroke checked> Is the stroke width an odd number of px? (Yes, in the default styles.)
+        <li><label>Output type?
+            <select id=option-type>
+                <option value=svg>SVG
+                <option selected value=standalone>Standalone SVG
+                <option value=text>Text
+            </select></label>
+</ul>
+
+<script type=module>
+    import rr, * as rrClass from "./railroad.js";
+    Object.assign(window, rr);
+    window.rrOptions = rrClass.Options;
+    console.log(rr);
+
+    const defaultStyle = `svg.railroad-diagram {
+    background-color: hsl(30,20%,95%);
+}
+svg.railroad-diagram path {
+    stroke-width: 3;
+    stroke: black;
+    fill: rgba(0,0,0,0);
+}
+svg.railroad-diagram text {
+    font: bold 14px monospace;
+    text-anchor: middle;
+    white-space: pre;
+}
+svg.railroad-diagram text.diagram-text {
+    font-size: 12px;
+}
+svg.railroad-diagram text.diagram-arrow {
+    font-size: 16px;
+}
+svg.railroad-diagram text.label {
+    text-anchor: start;
+}
+svg.railroad-diagram text.comment {
+    font: italic 12px monospace;
+}
+svg.railroad-diagram g.non-terminal text {
+    /*font-style: italic;*/
+}
+svg.railroad-diagram rect {
+    stroke-width: 3;
+    stroke: black;
+    fill: hsl(120,100%,90%);
+}
+svg.railroad-diagram rect.group-box {
+    stroke: gray;
+    stroke-dasharray: 10 5;
+    fill: none;
+}
+svg.railroad-diagram path.diagram-text {
+    stroke-width: 3;
+    stroke: black;
+    fill: white;
+    cursor: help;
+}
+svg.railroad-diagram g.diagram-text:hover path.diagram-text {
+    fill: #eee;
+}
+
+svg.railroad-diagram g.non-terminal rect {
+    fill: hsl(60,100%,90%);
+}
+`
+
+    const find = document.querySelector.bind(document);
+
+    find('.input').addEventListener('input', e=>process(e.target.value), false);
+    document.addEventListener('DOMContentLoaded', initialProcess, false);
+    window.addEventListener('hashchange', hashProcess, false);
+    find('.info').addEventListener('input', _=>process(), false);
+
+    function initialProcess() {
+        if(location.hash && location.hash.length > 1) {
+            const code = decodeURIComponent(location.hash.substr(1));
+            const input = find('.input');
+            input.textContent = code;
+        }
+        process();
+    }
+
+    function hashProcess() {
+        if(location.hash && location.hash.length > 1) {
+            const code = decodeURIComponent(location.hash.substr(1));
+            const input = find('.input');
+            if(input.value != code) {
+                input.textContent = code;
+                process(code);
+            }
+        }
+    }
+
+    function process(input) {
+        if(!input) input = find('.input').value;
+        const outputType = find('#option-type').value;
+        rrOptions.VS = parseInt(find("#option-vs").value, 10);
+        rrOptions.AR = parseInt(find("#option-ar").value, 10);
+        rrOptions.STROKE_ODD_PIXEL_LENGTH = find("#option-odd-stroke").checked;
+        rrOptions.CHAR_WIDTH = parseInt(find("#option-char-width").value, 10);
+        rrOptions.COMMENT_CHAR_WIDTH = parseInt(find("#option-comment-width").value, 10);
+        rrOptions.INTERNAL_ALIGNMENT = find("#option-alignment").value;
+        try {
+            var result = eval(input).format();
+            location.hash = "#" + encodeURIComponent(input);
+        } catch (e) {
+            find('.output-text').textContent = "Invalid input.\n" + e
+            throw e;
+        }
+        if(outputType == "svg" || outputType == "standalone") {
+            find('.output-image').innerHTML = '';
+            result.addTo(find('.output-image'));
+            find('.output-text').textContent = outputType == "standalone" ? result.toStandalone(defaultStyle) : result.toString();
+        } else if(outputType == "text") {
+            find('.output-text').textContent = result.toText();
+            find('.output-image').innerHTML = '';
+        } else {
+            console.error(`Unknown output type '${outputType}'.`);
+        }
+        console.log(result);
+    }
+</script>
+
+<style>
+    @media all and (min-width: 400px) {
+        html, body { margin: 0; padding: 0; height: 100%; }
+        body {
+            display: grid;
+            grid-template:
+			"input  code" 1fr
+			"output info" 1fr
+			/ auto   minmax(15em, auto);
+            max-width: 100%;
+        }
+    }
+    .input {
+        grid-area: input;
+    }
+    .output-text {
+        grid-area: code;
+    }
+    .output-image {
+        grid-area: output;
+        overflow:  auto;
+    }
+    .info {
+        grid-area: info;
+    }
+    .info input[type=number], .info select {
+        width:  60px;
+        box-sizing:  border-box;
+    }
+</style>
