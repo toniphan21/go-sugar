@@ -74,6 +74,10 @@ type Module struct {
 	files       map[string]*File
 }
 
+func (m *Module) Files() map[string]*File {
+	return m.files
+}
+
 func (m *Module) DiscoverFiles() error {
 	env := m.Config.env()
 	return filepath.WalkDir(m.Root, func(path string, d fs.DirEntry, err error) error {
@@ -135,27 +139,39 @@ func (m *Module) HasFile(relPath string) bool {
 }
 
 func (m *Module) StructuralTransform() error {
+	var fileErrors FileErrors
+
 	for _, v := range m.files {
-		if err := v.structuralTransform(); err != nil {
+		if err := collectError(&fileErrors, v.structuralTransform()); err != nil {
 			return err
 		}
+	}
+
+	if len(fileErrors) > 0 {
+		return fileErrors
 	}
 	return nil
 }
 
 func (m *Module) SemanticTransform() error {
-	if err := m.StructuralTransform(); err != nil {
+	var fileErrors FileErrors
+
+	if err := collectError(&fileErrors, m.StructuralTransform()); err != nil {
 		return err
 	}
 
-	if err := m.analyzeSemantic(); err != nil {
+	if err := collectError(&fileErrors, m.analyzeSemantic()); err != nil {
 		return err
 	}
 
 	for _, v := range m.files {
-		if err := v.semanticTransform(); err != nil {
+		if err := collectError(&fileErrors, v.semanticTransform()); err != nil {
 			return err
 		}
+	}
+
+	if len(fileErrors) > 0 {
+		return fileErrors
 	}
 	return nil
 }

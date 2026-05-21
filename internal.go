@@ -23,6 +23,10 @@ type snapshotAPI interface {
 type fileAPI interface {
 	snapshotAPI
 
+	SugarPath() string
+
+	GoPath() string
+
 	Update(content []byte)
 }
 

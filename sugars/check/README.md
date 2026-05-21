@@ -11,8 +11,6 @@ Check = [ IdentifierLHS ] "check" CallExpr .
 
 ![syntax](./imgs/syntax.svg)
 
-*syntax*
-
 ```
 --- /tools/railroad-diagram
 
@@ -25,29 +23,24 @@ Diagram(
 )
 ```
 
-#### components
+#### Components
 
+##### *IdentifierList*
 ![IdentifierList](/lex/gn/imgs/identifier-list.svg)
 
-*IdentifierList*
-
+##### *IdentifierLHS*
 ![IdentifierLHS](/lex/imgs/identifier-lhs.svg)
 
-*IdentifierLHS*
-
+##### *SelectorPath*
 ![SelectorPath](/lex/imgs/selector-path.svg)
 
-*SelectorPath*
-
+##### *CallSuffix*
 ![CallSuffix](/lex/imgs/call-suffix.svg)
 
-*CallSuffix*
-
+##### *CallExpr*
 ![CallExpr](/lex/imgs/call-expr.svg)
 
-*CallExpr*
-
-#### examples
+#### Examples
 ```
 func something() error {
     return nil

@@ -47,8 +47,7 @@ import (
 )
 
 func test() error {
-	err := doSomething()
-if err != nil {
+	if err := doSomething(); err != nil {
 	return err
 }
 	

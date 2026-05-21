@@ -51,24 +51,40 @@ func (s *sugarImpl) StructuralTransform(source []byte, _ []sugar.Lexeme) []byte 
 func (s *sugarImpl) SemanticTransformer(source []byte, lexemes []sugar.Lexeme) []byte {
 	// do simple things first, we update edge cases later
 	// output:
+
+	// if no identifiers:
+	// if err := [checkEnd:end); err != nil {<nl>
+	// <tab>return err<nl>
+	// }<nl>
+
+	// if there is identifiers:
 	// [identifiers, ] err := [checkEnd:end)\n
 	// if err != nil {<nl>
 	// <tab>return err<nl>
 	// }<nl>
 	out := bytes.Buffer{}
 
-	idents := make([]string, len(s.identifiers)+1)
-	copy(idents, s.identifiers)
-	idents[len(s.identifiers)] = "err"
+	if len(s.identifiers) == 0 {
+		out.WriteString("if err := ")
+		out.Write(source[s.checkEnd.Offset:s.end.Offset])
+		out.WriteString("; err != nil {\n")
+		out.WriteRune('\t')
+		out.WriteString("return err\n")
+		out.WriteRune('}')
+	} else {
+		idents := make([]string, len(s.identifiers)+1)
+		copy(idents, s.identifiers)
+		idents[len(s.identifiers)] = "err"
 
-	out.WriteString(strings.Join(idents, ", "))
-	out.WriteString(" := ")
-	out.Write(source[s.checkEnd.Offset:s.end.Offset])
-	out.WriteRune('\n')
-	out.WriteString("if err != nil {\n")
-	out.WriteRune('\t')
-	out.WriteString("return err\n")
-	out.WriteRune('}')
+		out.WriteString(strings.Join(idents, ", "))
+		out.WriteString(" := ")
+		out.Write(source[s.checkEnd.Offset:s.end.Offset])
+		out.WriteRune('\n')
+		out.WriteString("if err != nil {\n")
+		out.WriteRune('\t')
+		out.WriteString("return err\n")
+		out.WriteRune('}')
+	}
 
 	return out.Bytes()
 }

@@ -2,10 +2,61 @@ package util
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"regexp"
 )
+
+// ---
+
+type cliHandler struct {
+	writer io.Writer
+	level  slog.Level
+}
+
+func (h *cliHandler) SetLevel(level string) {
+	l := slog.LevelDebug
+	switch level {
+	case "debug":
+		l = slog.LevelDebug
+	case "info":
+		l = slog.LevelInfo
+	case "warn":
+		l = slog.LevelWarn
+	case "error":
+		l = slog.LevelError
+	}
+	h.level = l
+}
+
+func (h *cliHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return level >= h.level
+}
+
+func (h *cliHandler) Handle(_ context.Context, r slog.Record) error {
+	msg := r.Message
+
+	attrs := ""
+	r.Attrs(func(a slog.Attr) bool {
+		attrs += fmt.Sprintf(" %s=%v", a.Key, a.Value)
+		return true
+	})
+
+	_, err := fmt.Fprintf(h.writer, "%s%s\n", msg, attrs)
+	return err
+}
+
+func (h *cliHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return h
+}
+
+func (h *cliHandler) WithGroup(name string) slog.Handler {
+	return h
+}
+
+// ---
 
 type multiHandler struct {
 	handlers []slog.Handler
@@ -49,10 +100,49 @@ func (m *multiHandler) WithGroup(name string) slog.Handler {
 	return &multiHandler{handlers: hs}
 }
 
+var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+type cleanHandler struct {
+	inner slog.Handler
+}
+
+func (h *cleanHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return h.inner.Enabled(context.Background(), level)
+}
+
+func (h *cleanHandler) Handle(ctx context.Context, r slog.Record) error {
+	r.Message = ansiPattern.ReplaceAllString(r.Message, "")
+	return h.inner.Handle(ctx, r)
+}
+
+func (h *cleanHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &cleanHandler{inner: h.inner.WithAttrs(attrs)}
+}
+
+func (h *cleanHandler) WithGroup(name string) slog.Handler {
+	return &cleanHandler{inner: h.inner.WithGroup(name)}
+}
+
 func NewLogger(filePath string, writer io.Writer, level slog.Level) (*slog.Logger, io.Closer, error) {
-	handlers := []slog.Handler{
+	return makeLogger(
 		slog.NewTextHandler(writer, &slog.HandlerOptions{Level: level}),
-	}
+		filePath, level,
+		nil,
+	)
+}
+
+func NewCLILogger(filePath string, writer io.Writer, level slog.Level) (*slog.Logger, io.Closer, error) {
+	return makeLogger(
+		&cliHandler{writer: writer, level: level},
+		filePath, level,
+		func(f *os.File) slog.Handler {
+			return &cleanHandler{inner: slog.NewJSONHandler(f, &slog.HandlerOptions{Level: level})}
+		},
+	)
+}
+
+func makeLogger(base slog.Handler, filePath string, level slog.Level, fn func(*os.File) slog.Handler) (*slog.Logger, io.Closer, error) {
+	handlers := []slog.Handler{base}
 
 	var f *os.File
 	var err error
@@ -61,7 +151,12 @@ func NewLogger(filePath string, writer io.Writer, level slog.Level) (*slog.Logge
 		if err != nil {
 			return nil, nil, err
 		}
-		handlers = append(handlers, slog.NewJSONHandler(f, &slog.HandlerOptions{Level: level}))
+
+		if fn != nil {
+			handlers = append(handlers, fn(f))
+		} else {
+			handlers = append(handlers, slog.NewJSONHandler(f, &slog.HandlerOptions{Level: level}))
+		}
 	}
 
 	return slog.New(NewMultiHandler(handlers...)), f, err

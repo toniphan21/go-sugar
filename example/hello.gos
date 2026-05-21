@@ -1,7 +1,10 @@
 package example
 
-func test() {
+func test() error {
 	check doSomething()
+	check doSomething()
+
+	return nil
 }
 
 func doSomething() error {

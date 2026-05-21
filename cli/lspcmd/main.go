@@ -16,11 +16,12 @@ import (
 const cmdName = "lsp"
 
 type Arguments struct {
-	Log string
+	Log      string
+	LogLevel slog.Level
 }
 
 func Run(stdin io.Reader, stdout io.Writer, stderr io.Writer, args Arguments) error {
-	log, logFile, err := util.NewLogger(args.Log, stderr, slog.LevelDebug)
+	log, logFile, err := util.NewLogger(args.Log, stderr, args.LogLevel)
 	if err != nil {
 		return err
 	}
