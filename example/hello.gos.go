@@ -2,7 +2,7 @@
 
 package example
 
-func test() error {
+func returnErrorOnly() error {
 	if err := doSomething(); err != nil {
 		return err
 	}

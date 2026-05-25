@@ -40,6 +40,14 @@ func (h *cliHandler) Handle(_ context.Context, r slog.Record) error {
 
 	attrs := ""
 	r.Attrs(func(a slog.Attr) bool {
+		if r.Level == slog.LevelError && a.Key == "error" {
+			if err, ok := a.Value.Any().(error); ok {
+				if err.Error() == cleanAnsiColor(msg) {
+					return true
+				}
+			}
+		}
+
 		attrs += fmt.Sprintf(" %s=%v", a.Key, a.Value)
 		return true
 	})
@@ -102,6 +110,10 @@ func (m *multiHandler) WithGroup(name string) slog.Handler {
 
 var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
+func cleanAnsiColor(s string) string {
+	return ansiPattern.ReplaceAllString(s, "")
+}
+
 type cleanHandler struct {
 	inner slog.Handler
 }
@@ -111,7 +123,7 @@ func (h *cleanHandler) Enabled(_ context.Context, level slog.Level) bool {
 }
 
 func (h *cleanHandler) Handle(ctx context.Context, r slog.Record) error {
-	r.Message = ansiPattern.ReplaceAllString(r.Message, "")
+	r.Message = cleanAnsiColor(r.Message)
 	return h.inner.Handle(ctx, r)
 }
 

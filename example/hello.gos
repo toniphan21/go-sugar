@@ -1,6 +1,6 @@
 package example
 
-func test() error {
+func returnErrorOnly() error {
 	check doSomething()
 	check doSomething()
 

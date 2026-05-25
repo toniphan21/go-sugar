@@ -36,13 +36,21 @@ func cmdUsage(out io.Writer, txt string) func() {
 	}
 }
 
-func invokeRunner[T any](stdin, stdout, stderr *os.File, arg T, runner Runner[T]) int {
+func invokeRunner[T any](stdin, stdout, stderr *os.File, arg T, runner Runner[T], errorHandler func(error)) int {
 	if err := runner(stdin, stdout, stderr, arg); err != nil {
-		_, _ = fmt.Fprint(stderr, err.Error())
+		errorHandler(err)
 		return 1
 	}
 	return 0
 }
+
+func printErrorTo(writer io.Writer) func(error) {
+	return func(err error) {
+		_, _ = fmt.Fprint(writer, err.Error())
+	}
+}
+
+func ignoreError(err error) {}
 
 func logLevel(verbosity *bool) slog.Level {
 	v := slog.LevelInfo

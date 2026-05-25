@@ -2,6 +2,7 @@ package sugartest
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -11,9 +12,7 @@ import (
 	"nhatp.com/go/sugar"
 )
 
-func goldenFile(t *testing.T, tc gentest.MarkdownTestCase, filename string) []byte {
-	t.Helper()
-
+func goldenFile(tc gentest.MarkdownTestCase, filename string) ([]byte, error) {
 	var output []byte
 	for _, v := range tc.GoldenFiles {
 		if v.FilePath() == filename {
@@ -21,14 +20,12 @@ func goldenFile(t *testing.T, tc gentest.MarkdownTestCase, filename string) []by
 		}
 	}
 	if output == nil {
-		t.Fatalf("no there is no expected output, use `// golden-file: %v` in a codeblock", filename)
+		return nil, fmt.Errorf("no there is no expected output, use `// golden-file: %v` in a codeblock", filename)
 	}
-	return output
+	return output, nil
 }
 
-func makeModuleFromMarkdownTestCase(t *testing.T, tc gentest.MarkdownTestCase) *sugar.Module {
-	t.Helper()
-
+func makeModuleFromMarkdownTestCase(dir string, config sugar.Config, tc gentest.MarkdownTestCase) (*sugar.Module, error) {
 	var input []byte
 	for _, v := range tc.SourceFiles {
 		if v.FilePath() == "input.gos" {
@@ -36,20 +33,14 @@ func makeModuleFromMarkdownTestCase(t *testing.T, tc gentest.MarkdownTestCase) *
 		}
 	}
 	if input == nil {
-		t.Fatal("no there is no input, use `// file: input.gos` in a codeblock")
+		return nil, errors.New("no there is no input, use `// file: input.gos` in a codeblock")
 	}
 
-	dir := t.TempDir()
-	err := genlib.SetupSourceCode(dir, tc.SourceFiles)
-	if err != nil {
-		t.Fatal(err.Error())
+	if err := genlib.SetupSourceCode(dir, tc.SourceFiles); err != nil {
+		return nil, err
 	}
 
-	mod, err := sugar.NewModule(dir, sugar.Config{})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	return mod
+	return sugar.NewModule(dir, config)
 }
 
 func assertFileOutput(t *testing.T, actual, expected []byte) {
@@ -72,37 +63,65 @@ func assertFileOutput(t *testing.T, actual, expected []byte) {
 func RunGoldenStructuralTransformTest(t *testing.T, tc gentest.MarkdownTestCase) {
 	t.Helper()
 
-	mod := makeModuleFromMarkdownTestCase(t, tc)
-	if err := mod.StructuralTransform(); err != nil {
+	result, err := PerformStructuralTransform(t.TempDir(), sugar.Config{}, tc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output, err := goldenFile(tc, "output.go")
+	if err != nil {
 		t.Fatal(err.Error())
+	}
+
+	assertFileOutput(t, result, output)
+}
+
+func PerformStructuralTransform(dir string, config sugar.Config, tc gentest.MarkdownTestCase) ([]byte, error) {
+	mod, err := makeModuleFromMarkdownTestCase(dir, config, tc)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = mod.StructuralTransform(); err != nil {
+		return nil, err
 	}
 
 	f, ok := mod.File("input.gos")
 	if !ok {
-		t.Fatal("cannot find input.gos file")
+		return nil, errors.New("cannot find input.gos file")
 	}
-
-	output := goldenFile(t, tc, "output.go")
-	result := f.StructuralTransform()
-
-	assertFileOutput(t, result, output)
+	return f.StructuralTransform(), nil
 }
 
 func RunGoldenSemanticTransformTest(t *testing.T, tc gentest.MarkdownTestCase) {
 	t.Helper()
 
-	mod := makeModuleFromMarkdownTestCase(t, tc)
-	if err := mod.SemanticTransform(); err != nil {
+	result, err := PerformSemanticTransform(t.TempDir(), sugar.Config{}, tc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output, err := goldenFile(tc, "output.go")
+	if err != nil {
 		t.Fatal(err.Error())
+	}
+
+	assertFileOutput(t, result, output)
+}
+
+func PerformSemanticTransform(dir string, config sugar.Config, tc gentest.MarkdownTestCase) ([]byte, error) {
+	mod, err := makeModuleFromMarkdownTestCase(dir, config, tc)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = mod.SemanticTransform(); err != nil {
+		return nil, err
 	}
 
 	f, ok := mod.File("input.gos")
 	if !ok {
-		t.Fatal("cannot find input.gos file")
+		return nil, errors.New("cannot find input.gos file")
 	}
-
-	output := goldenFile(t, tc, "output.go")
-	result := f.SemanticTransform()
-
-	assertFileOutput(t, result, output)
+	return f.SemanticTransform(), nil
 }
