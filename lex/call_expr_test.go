@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/lextest"
 )
 
@@ -35,8 +34,6 @@ func callExprNodes(item ...callExprNode) []callExprNode {
 }
 
 func Test_CallExpr(t *testing.T) {
-	lextest.Debug(sugar.SetLogger)
-
 	cases := []lextest.ContinuousTestCase[callExprNode]{
 		{Name: "invalid: single lit with nothing", Code: `1`},
 		{Name: "invalid: ident without call", Code: `a.b.c`},

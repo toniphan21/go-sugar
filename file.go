@@ -100,20 +100,12 @@ func (f *File) Update(content []byte) {
 	f.current = newSnapshot(content)
 }
 
-func (f *File) structuralTransform() error {
-	return f.current.structuralTransform()
-}
-
-func (f *File) semanticAnalysis(pkg *packages.Package) error {
-	return f.current.semanticAnalysis(pkg)
-}
-
 func (f *File) StructuralTransform() []byte {
 	return f.current.StructuralTransform()
 }
 
-func (f *File) semanticTransform() error {
-	return f.current.semanticTransform()
+func (f *File) semanticAnalysis(pkg *packages.Package) error {
+	return f.current.semanticAnalysis(pkg)
 }
 
 func (f *File) SemanticTransform() []byte {

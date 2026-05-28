@@ -25,6 +25,10 @@ func (m *mockSugar) StructuralTransform(source []byte, lexemes []Lexeme) []byte 
 	return []byte(m.structureTransformed)
 }
 
+func (m *mockSugar) RestoreTransform(source []byte, lexemes []Lexeme) []byte {
+	return nil
+}
+
 func (m *mockSugar) SemanticAnalysis(pkg *packages.Package, smap *SourceMap) error {
 	return nil
 }
@@ -50,8 +54,9 @@ func Test_Snapshot_doStructuralTransform(t *testing.T) {
 
 	ss := &Snapshot{
 		source: source,
+		sugars: sugars,
 	}
-	ss.doStructuralTransform(sugars)
+	_ = ss.StructuralTransform()
 
 	got := ss.t1output
 	want := []byte("hello REPLACED world")

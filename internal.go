@@ -5,13 +5,9 @@ import "golang.org/x/tools/go/packages"
 type snapshotAPI interface {
 	Hash() [32]byte
 
-	structuralTransform() error
-
 	StructuralTransform() []byte
 
 	semanticAnalysis(pkg *packages.Package) error
-
-	semanticTransform() error
 
 	SemanticTransform() []byte
 

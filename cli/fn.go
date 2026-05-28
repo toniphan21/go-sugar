@@ -1,13 +1,21 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 
 	"nhatp.com/go/gen-lib/cli"
 )
+
+type UsageError interface {
+	error
+
+	UsageError()
+}
 
 func disableColorIfNeeded(flag *bool, stdout *os.File) {
 	isTerminal := false
@@ -50,6 +58,14 @@ func printErrorTo(writer io.Writer) func(error) {
 	}
 }
 
+func printUsage(writer io.Writer, usage string) func(error) {
+	return func(err error) {
+		if _, ok := errors.AsType[UsageError](err); ok {
+			_, _ = fmt.Fprint(writer, usage)
+		}
+	}
+}
+
 func ignoreError(err error) {}
 
 func logLevel(verbosity *bool) slog.Level {
@@ -68,4 +84,35 @@ func flagVal[T any](args ...*T) T {
 		}
 	}
 	return v
+}
+
+func reorderArgs(args []string, knownFlags ...string) []string {
+	known := make(map[string]bool)
+	for _, v := range knownFlags {
+		known["-"+v] = true
+		known["--"+v] = true
+	}
+
+	isKnownFlag := func(v string) bool {
+		if known[v] {
+			return true
+		}
+		for k := range known {
+			if strings.HasPrefix(v, k+"=") {
+				return true
+			}
+		}
+		return false
+	}
+
+	var flags []string
+	var positional []string
+	for _, v := range args {
+		if isKnownFlag(v) {
+			flags = append(flags, v)
+		} else {
+			positional = append(positional, v)
+		}
+	}
+	return append(flags, positional...)
 }

@@ -1,4 +1,4 @@
-package testcmd
+package goldencmd
 
 import (
 	"fmt"
@@ -17,6 +17,15 @@ import (
 )
 
 const cmdName = "test"
+
+type errNoFileSpecified struct {
+}
+
+func (e *errNoFileSpecified) UsageError() {}
+
+func (e *errNoFileSpecified) Error() string {
+	return "no files specified"
+}
 
 type Type int
 
@@ -61,7 +70,7 @@ func Run(stdin io.Reader, stdout io.Writer, stderr io.Writer, args Arguments) er
 
 func run(stdin io.Reader, stdout, stderr io.Writer, args Arguments, log *slog.Logger) error {
 	if len(args.Files) == 0 {
-		return fmt.Errorf("no files specified")
+		return &errNoFileSpecified{}
 	}
 
 	cmd := &cli.TestRunner{
@@ -126,7 +135,7 @@ func runStructuralTransform(cmd *cli.TestRunner) {
 	cmd.Print("Running " + color.Source("T1 - StructuralTransform") + " tests with " + color.Binary(sugar.BinaryName) + " " + color.Version(sugar.BinaryVersion))
 	cmd.Print("")
 	cmd.RunTestCase = func(tc cli.TestCase, options map[string]any) (genlib.FileManager, error) {
-		return runTransformTest(tc, sugartest.PerformStructuralTransform)
+		return runTransformTest(tc, "output.go", sugartest.PerformStructuralTransform)
 	}
 	cmd.Run()
 }
@@ -135,15 +144,21 @@ func runSemanticTransform(cmd *cli.TestRunner) {
 	cmd.Print("Running " + color.Source("T2 - SemanticTransform") + " tests with " + color.Binary(sugar.BinaryName) + " " + color.Version(sugar.BinaryVersion))
 	cmd.Print("")
 	cmd.RunTestCase = func(tc cli.TestCase, options map[string]any) (genlib.FileManager, error) {
-		return runTransformTest(tc, sugartest.PerformSemanticTransform)
+		return runTransformTest(tc, "output.go", sugartest.PerformSemanticTransform)
 	}
 	cmd.Run()
 }
 
 func runRestoreTransform(cmd *cli.TestRunner) {
+	cmd.Print("Running " + color.Source("T3 - RestoreTransform") + " tests with " + color.Binary(sugar.BinaryName) + " " + color.Version(sugar.BinaryVersion))
+	cmd.Print("")
+	cmd.RunTestCase = func(tc cli.TestCase, options map[string]any) (genlib.FileManager, error) {
+		return runTransformTest(tc, "output.gos", sugartest.PerformRestoreTransform)
+	}
+	cmd.Run()
 }
 
-func runTransformTest(tc cli.TestCase, transform func(string, sugar.Config, gentest.MarkdownTestCase) ([]byte, error)) (genlib.FileManager, error) {
+func runTransformTest(tc cli.TestCase, outFileName string, transform func(string, sugar.Config, gentest.MarkdownTestCase) ([]byte, error)) (genlib.FileManager, error) {
 	dir := tc.TestDir
 	mtc := gentest.MarkdownTestCase{
 		SourceFiles: tc.SourceFiles,
@@ -155,7 +170,7 @@ func runTransformTest(tc cli.TestCase, transform func(string, sugar.Config, gent
 	}
 
 	fm := genlib.NewFileManager(dir)
-	if err = fm.Add(&file.GoFile{Path: filepath.Join(dir, "output.go"), Content: string(output)}); err != nil {
+	if err = fm.Add(&file.GoFile{Path: filepath.Join(dir, outFileName), Content: string(output)}); err != nil {
 		return nil, fmt.Errorf("cannot add output.go to FileManager: %w", err)
 	}
 	return fm, nil

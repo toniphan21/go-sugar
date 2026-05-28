@@ -9,8 +9,8 @@ import (
 	"nhatp.com/go/gen-lib/cli"
 	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/cli/generatecmd"
+	"nhatp.com/go/sugar/cli/goldencmd"
 	"nhatp.com/go/sugar/cli/lspcmd"
-	"nhatp.com/go/sugar/cli/testcmd"
 	"nhatp.com/go/sugar/cli/versioncmd"
 	"nhatp.com/go/sugar/sugars/check"
 )
@@ -26,10 +26,11 @@ go-sugar - a superset of go with sugar.
 See docs at https://nhatp.com/go/sugar
 
 commands:
-  generate   Generate Go code from gos file
   fmt        Format gos files
   lsp        Starts a language server for gos files
   info       Displays information about go-sugar environment
+  generate   Generate Go code from gos file
+  golden     Run Markdown golden tests
   version    Prints the version
 
 `
@@ -46,8 +47,8 @@ func Run(stdin, stdout, stderr *os.File, args []string) int {
 		return generate(stdin, stdout, stderr, args[2:], generatecmd.Run)
 	case "lsp":
 		return lsp(stdin, stdout, stderr, args[2:], lspcmd.Run)
-	case "test":
-		return test(stdin, stdout, stderr, args[2:], testcmd.Run)
+	case "golden":
+		return golden(stdin, stdout, stderr, args[2:], goldencmd.Run)
 	case "version", "-version", "--version":
 		return version(stdin, stdout, stderr, args[2:], versioncmd.Run)
 	}
@@ -91,7 +92,10 @@ func generate(stdin, stdout, stderr *os.File, args []string, runner Runner[gener
 	help := cmd.Bool("help", false, "")
 
 	cmd.Usage = cmdUsage(stderr, generateUsageText)
-	if err := cmd.Parse(args); err != nil {
+	reorderableFlags := []string{
+		"w", "working-dir", "d", "dry", "v", "no-color",
+	}
+	if err := cmd.Parse(reorderArgs(args, reorderableFlags...)); err != nil {
 		return codeExUsage
 	}
 
@@ -106,7 +110,7 @@ func generate(stdin, stdout, stderr *os.File, args []string, runner Runner[gener
 		Log:        flagVal(log),
 		LogLevel:   logLevel(verbosity),
 	}
-	return invokeRunner(stdin, stdout, stderr, arg, runner, ignoreError)
+	return invokeRunner(stdin, stdout, stderr, arg, runner, printUsage(stderr, generateUsageText))
 }
 
 // ---
@@ -148,7 +152,7 @@ func lsp(stdin, stdout, stderr *os.File, args []string, runner Runner[lspcmd.Arg
 
 // ---
 
-const testUsageText = `usage: go-sugar test [flags] FILE [FILE ...]
+const goldenUsageText = `usage: go-sugar golden [flags] FILE [FILE ...]
 
 Run Markdown golden tests. By default, tests the "generate" pipeline.
 
@@ -170,7 +174,7 @@ Flags:
 
 `
 
-func test(stdin, stdout, stderr *os.File, args []string, runner Runner[testcmd.Arguments]) int {
+func golden(stdin, stdout, stderr *os.File, args []string, runner Runner[goldencmd.Arguments]) int {
 	cmd := flag.NewFlagSet("lsp", flag.ContinueOnError)
 	t1 := cmd.Bool("t1", false, "")
 	t2 := cmd.Bool("t2", false, "")
@@ -194,17 +198,20 @@ func test(stdin, stdout, stderr *os.File, args []string, runner Runner[testcmd.A
 	h := cmd.Bool("h", false, "")
 	help := cmd.Bool("help", false, "")
 
-	cmd.Usage = cmdUsage(stderr, testUsageText)
-	if err := cmd.Parse(args); err != nil {
+	cmd.Usage = cmdUsage(stderr, goldenUsageText)
+	reorderableFlags := []string{
+		"n", "name", "s", "show-setup", "t", "tab-size", "e", "emit-code", "log", "v", "no-color",
+	}
+	if err := cmd.Parse(reorderArgs(args, reorderableFlags...)); err != nil {
 		return codeExUsage
 	}
 
 	disableColorIfNeeded(noColor, stdout)
-	if printHelp(stderr, testUsageText, h, help) {
+	if printHelp(stderr, goldenUsageText, h, help) {
 		return 0
 	}
 
-	arg := testcmd.Arguments{
+	arg := goldencmd.Arguments{
 		Files:     cmd.Args(),
 		Name:      flagVal(n, name),
 		ShowSetup: *s || *showSetup,
@@ -215,15 +222,15 @@ func test(stdin, stdout, stderr *os.File, args []string, runner Runner[testcmd.A
 	}
 	switch {
 	case *t1:
-		arg.Type = testcmd.TypeStructuralTransform
+		arg.Type = goldencmd.TypeStructuralTransform
 	case *t2:
-		arg.Type = testcmd.TypeSemanticTransform
+		arg.Type = goldencmd.TypeSemanticTransform
 	case *t3:
-		arg.Type = testcmd.TypeRestoreTransform
+		arg.Type = goldencmd.TypeRestoreTransform
 	default:
-		arg.Type = testcmd.TypeGenerate
+		arg.Type = goldencmd.TypeGenerate
 	}
-	return invokeRunner(stdin, stdout, stderr, arg, runner, ignoreError)
+	return invokeRunner(stdin, stdout, stderr, arg, runner, printUsage(stderr, goldenUsageText))
 }
 
 // ---

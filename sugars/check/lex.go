@@ -90,7 +90,7 @@ func LexicalParser() sugar.LexicalParser {
 			MoveTo:        expectCheck,
 			SuccessAction: doCollectIdentifiers,
 		}).
-		Use(expectCheck, lex.KeywordParser("check"), sugar.TransitionControl[string]{
+		Use(expectCheck, lex.KeywordParser(keyword), sugar.TransitionControl[string]{
 			FirstTake:     doCollectCheckPos,
 			ErrorMoveTo:   start,
 			ErrorAction:   doPropagateFail,

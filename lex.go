@@ -196,6 +196,11 @@ func NewLexicalParser[S comparable, B LexicalNodeBuilder[N], N any](
 // ---
 
 type Node interface {
+	Pos() Lexeme
+	End() Lexeme
+}
+
+type ParsedNode interface {
 	AsSugar() (Sugar, bool)
 }
 

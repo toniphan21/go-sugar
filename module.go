@@ -182,36 +182,22 @@ func (m *Module) HasFile(relPath string) bool {
 	return ok
 }
 
-func (m *Module) StructuralTransform() error {
-	var fileErrors FileErrors
-
+func (m *Module) StructuralTransform() {
 	for _, v := range m.files {
-		if err := collectError(&fileErrors, v.structuralTransform()); err != nil {
-			return err
-		}
+		v.StructuralTransform()
 	}
-
-	if len(fileErrors) > 0 {
-		return fileErrors
-	}
-	return nil
 }
 
 func (m *Module) SemanticTransform() error {
 	var fileErrors FileErrors
-
-	if err := collectError(&fileErrors, m.StructuralTransform()); err != nil {
-		return err
-	}
+	m.StructuralTransform()
 
 	if err := collectError(&fileErrors, m.analyzeSemantic()); err != nil {
 		return err
 	}
 
 	for _, v := range m.files {
-		if err := collectError(&fileErrors, v.semanticTransform()); err != nil {
-			return err
-		}
+		v.SemanticTransform()
 	}
 
 	if len(fileErrors) > 0 {

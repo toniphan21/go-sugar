@@ -9,9 +9,8 @@ import (
 
 	"golang.org/x/tools/go/packages"
 	"nhatp.com/go/sugar"
+	"nhatp.com/go/sugar/lex"
 )
-
-const StructuralReplacedName = "__sugar_check__"
 
 type sugarImpl struct {
 	pos              sugar.Lexeme
@@ -40,7 +39,7 @@ func (s *sugarImpl) StructuralTransform(source []byte, _ []sugar.Lexeme) []byte 
 	out := bytes.Buffer{}
 
 	out.Write(source[s.pos.Offset:s.checkPos.Offset])
-	out.Write([]byte(StructuralReplacedName))
+	out.Write([]byte(lex.SugarPlaceholderFuncName(keyword)))
 	out.WriteRune('(')
 	out.Write(source[s.checkEnd.Offset:s.end.Offset])
 	out.WriteRune(')')
@@ -99,7 +98,7 @@ func (s *sugarImpl) SemanticAnalysis(pkg *packages.Package, smap *sugar.SourceMa
 
 			// is this a __sugar_check__(...) call?
 			ident, ok := call.Fun.(*ast.Ident)
-			if !ok || ident.Name != StructuralReplacedName {
+			if !ok || ident.Name != lex.SugarPlaceholderFuncName(keyword) {
 				return true
 			}
 

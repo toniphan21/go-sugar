@@ -4,6 +4,8 @@ package main
 
 import (
 	"os"
+
+	"nhatp.com/go/sugar/cli"
 )
 
 func main() {

@@ -36,6 +36,9 @@ func (s *Snapshot) scan() []Lexeme {
 func (s *Snapshot) doParseSugars() []Sugar {
 	if s.sugars == nil {
 		s.sugars = parseSugars(s.scan())
+		slices.SortFunc(s.sugars, func(a, b Sugar) int {
+			return cmp.Compare(a.Pos().Offset, b.Pos().Offset)
+		})
 	}
 	return s.sugars
 }
@@ -73,43 +76,6 @@ func (s *Snapshot) doTransform(sugars []Sugar, fn func(Sugar, []byte, []Lexeme) 
 	return out.Bytes(), smap
 }
 
-func (s *Snapshot) doStructuralTransform(sugars []Sugar) {
-	out, smap := s.doTransform(sugars, func(v Sugar, s []byte, l []Lexeme) []byte {
-		return v.StructuralTransform(s, l)
-	})
-
-	smap.buildByGo()
-
-	s.t1output = out
-	s.t1smap = smap
-}
-
-func (s *Snapshot) doSemanticTransform(sugars []Sugar) {
-	out, smap := s.doTransform(sugars, func(v Sugar, s []byte, l []Lexeme) []byte {
-		return v.SemanticTransformer(s, l)
-	})
-
-	smap.buildBySugar()
-	smap.buildByGo()
-
-	s.t2output = out
-	s.t2smap = smap
-}
-
-func (s *Snapshot) structuralTransform() error {
-	if s.t1smap != nil {
-		return nil
-	}
-
-	sugars := s.doParseSugars()
-	slices.SortFunc(sugars, func(a, b Sugar) int {
-		return cmp.Compare(a.Pos().Offset, b.Pos().Offset)
-	})
-
-	s.doStructuralTransform(sugars)
-	return nil
-}
-
 func (s *Snapshot) semanticAnalysis(pkg *packages.Package) error {
 	sugars := s.doParseSugars()
 	for _, v := range sugars {
@@ -120,17 +86,34 @@ func (s *Snapshot) semanticAnalysis(pkg *packages.Package) error {
 	return nil
 }
 
-func (s *Snapshot) semanticTransform() error {
-	s.doSemanticTransform(s.doParseSugars())
-
-	return nil
-}
-
 func (s *Snapshot) StructuralTransform() []byte {
+	if s.t1smap == nil {
+		sugars := s.doParseSugars()
+		out, smap := s.doTransform(sugars, func(v Sugar, s []byte, l []Lexeme) []byte {
+			return v.StructuralTransform(s, l)
+		})
+
+		smap.buildByGo()
+
+		s.t1output = out
+		s.t1smap = smap
+	}
 	return s.t1output
 }
 
 func (s *Snapshot) SemanticTransform() []byte {
+	if s.t2smap == nil {
+		sugars := s.doParseSugars()
+		out, smap := s.doTransform(sugars, func(v Sugar, s []byte, l []Lexeme) []byte {
+			return v.SemanticTransformer(s, l)
+		})
+
+		smap.buildBySugar()
+		smap.buildByGo()
+
+		s.t2output = out
+		s.t2smap = smap
+	}
 	return s.t2output
 }
 
