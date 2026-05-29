@@ -171,6 +171,9 @@ func makeLogger(base slog.Handler, filePath string, level slog.Level, fn func(*o
 		}
 	}
 
+	if f == nil {
+		return slog.New(NewMultiHandler(handlers...)), nil, err
+	}
 	return slog.New(NewMultiHandler(handlers...)), f, err
 }
 

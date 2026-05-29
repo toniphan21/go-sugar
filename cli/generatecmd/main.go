@@ -57,7 +57,7 @@ func run(stdin io.Reader, stdout, stderr io.Writer, args Arguments, log *slog.Lo
 	}
 	log.Info(color.Binary(sugar.BinaryName) + " is working on directory: " + color.Input(workingDir))
 
-	mod, err := sugar.NewModule(workingDir, sugar.Config{}, sugar.WithBinary(sugar.BinaryFullName), sugar.WithVersion(sugar.BinaryVersion))
+	mod, err := sugar.NewModule(workingDir, sugar.DefaultConfig(), sugar.WithBinary(sugar.BinaryFullName), sugar.WithVersion(sugar.BinaryVersion))
 	if err != nil {
 		return err
 	}

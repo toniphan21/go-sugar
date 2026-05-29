@@ -18,6 +18,12 @@ func newFile(relPath, goFilePath string, content []byte) *File {
 	}
 }
 
+type FilePath struct {
+	RelPath     string
+	AbsPath     string
+	DisplayPath string
+}
+
 type FileError struct {
 	File   File
 	Action string

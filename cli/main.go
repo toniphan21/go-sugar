@@ -8,6 +8,7 @@ import (
 
 	"nhatp.com/go/gen-lib/cli"
 	"nhatp.com/go/sugar"
+	"nhatp.com/go/sugar/cli/fmtcmd"
 	"nhatp.com/go/sugar/cli/generatecmd"
 	"nhatp.com/go/sugar/cli/goldencmd"
 	"nhatp.com/go/sugar/cli/lspcmd"
@@ -26,12 +27,12 @@ go-sugar - a superset of go with sugar.
 See docs at https://nhatp.com/go/sugar
 
 commands:
-  fmt        Format gos files
-  lsp        Starts a language server for gos files
-  info       Displays information about go-sugar environment
-  generate   Generate Go code from gos file
-  golden     Run Markdown golden tests
-  version    Prints the version
+  fmt       Format gos files
+  lsp       Starts a language server for gos files
+  info      Displays information about go-sugar environment
+  generate  Generate Go code from gos file
+  golden    Run Markdown golden tests
+  version   Prints the version
 
 `
 
@@ -43,7 +44,9 @@ func Run(stdin, stdout, stderr *os.File, args []string) int {
 
 	registerPlugins()
 	switch args[1] {
-	case "generate":
+	case "fmt", "format":
+		return format(stdin, stdout, stderr, args[2:], fmtcmd.Run)
+	case "gen", "generate":
 		return generate(stdin, stdout, stderr, args[2:], generatecmd.Run)
 	case "lsp":
 		return lsp(stdin, stdout, stderr, args[2:], lspcmd.Run)
@@ -58,6 +61,53 @@ func Run(stdin, stdout, stderr *os.File, args []string) int {
 
 func registerPlugins() {
 	sugar.Register(check.New())
+}
+
+// ---
+
+const fmtUsageText = `usage: go-sugar fmt [flags] [FILE|DIR|PATTERN...]
+
+Format go-sugar files.
+
+  ./     Format go-sugar files in the current directory.
+  ./...  Format go-sugar files in the current directory tree, recursively.
+
+If no arguments are given, defaults to the current directory (non-recursive).
+
+Flags:
+  -d, -dry   Preview changes without writing to disk.
+  -no-color  Disable color output.
+  -h, -help  Print this help message and exit.
+
+`
+
+func format(stdin, stdout, stderr *os.File, args []string, runner Runner[fmtcmd.Arguments]) int {
+	cmd := flag.NewFlagSet("lsp", flag.ContinueOnError)
+	d := cmd.Bool("d", false, "Preview changes without writing to disk")
+	dry := cmd.Bool("dry", false, "Preview changes without writing to disk")
+
+	noColor := cmd.Bool("no-color", false, "")
+	h := cmd.Bool("h", false, "")
+	help := cmd.Bool("help", false, "")
+
+	cmd.Usage = cmdUsage(stderr, fmtUsageText)
+	reorderableFlags := []string{
+		"d", "dry", "no-color",
+	}
+	if err := cmd.Parse(reorderArgs(args, reorderableFlags...)); err != nil {
+		return codeExUsage
+	}
+
+	disableColorIfNeeded(noColor, stdout)
+	if printHelp(stderr, generateUsageText, h, help) {
+		return 0
+	}
+
+	arg := fmtcmd.Arguments{
+		Args:   cmd.Args(),
+		DryRun: *d || *dry,
+	}
+	return invokeRunner(stdin, stdout, stderr, arg, runner, printUsage(stderr, generateUsageText))
 }
 
 // ---

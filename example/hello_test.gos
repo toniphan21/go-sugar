@@ -1,0 +1,13 @@
+package example
+
+import "testing"
+
+func Test_returnErrorOnly(t *testing.T) {
+	check doSomething()
+	check doSomething()
+
+	if true {
+		check doSomethingElse(1, "test")
+	}
+	return nil
+}

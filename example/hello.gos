@@ -10,4 +10,3 @@ func returnErrorOnly() error {
 func doSomething() error {
 	return nil
 }
-

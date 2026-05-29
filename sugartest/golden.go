@@ -53,7 +53,7 @@ func assertFileOutput(t *testing.T, actual, expected []byte) {
 func RunGoldenStructuralTransformTest(t *testing.T, tc gentest.MarkdownTestCase) {
 	t.Helper()
 
-	result, err := PerformStructuralTransform(t.TempDir(), sugar.Config{}, tc)
+	result, err := PerformStructuralTransform(t.TempDir(), sugar.DefaultConfig(), tc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func PerformStructuralTransform(dir string, config sugar.Config, tc gentest.Mark
 func RunGoldenSemanticTransformTest(t *testing.T, tc gentest.MarkdownTestCase) {
 	t.Helper()
 
-	result, err := PerformSemanticTransform(t.TempDir(), sugar.Config{}, tc)
+	result, err := PerformSemanticTransform(t.TempDir(), sugar.DefaultConfig(), tc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func PerformSemanticTransform(dir string, config sugar.Config, tc gentest.Markdo
 func RunGoldenRestoreTransformTest(t *testing.T, tc gentest.MarkdownTestCase) {
 	t.Helper()
 
-	result, err := PerformRestoreTransform(t.TempDir(), sugar.Config{}, tc)
+	result, err := PerformRestoreTransform(t.TempDir(), sugar.DefaultConfig(), tc)
 	if err != nil {
 		t.Fatal(err)
 	}

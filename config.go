@@ -37,3 +37,13 @@ func (c *Config) env() Env {
 	}
 	return e
 }
+
+func DefaultConfig() Config {
+	return Config{
+		Env: Env{
+			GoModFileName: DefaultGoModFileName,
+			GoFileExt:     DefaultGoFileExt,
+			SugarFileExt:  DefaultFileExt,
+		},
+	}
+}

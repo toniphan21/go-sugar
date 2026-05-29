@@ -108,7 +108,7 @@ func runGenerate(cmd *cli.TestRunner) {
 			return nil, err
 		}
 
-		mod, err := sugar.NewModule(dir, sugar.Config{})
+		mod, err := sugar.NewModule(dir, sugar.DefaultConfig())
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +164,7 @@ func runTransformTest(tc cli.TestCase, outFileName string, transform func(string
 		SourceFiles: tc.SourceFiles,
 	}
 
-	output, err := transform(dir, sugar.Config{}, mtc)
+	output, err := transform(dir, sugar.DefaultConfig(), mtc)
 	if err != nil {
 		return nil, err
 	}

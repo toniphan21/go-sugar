@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"golang.org/x/mod/modfile"
@@ -58,6 +59,7 @@ func NewModule(path string, config Config, opts ...ModuleOption) (*Module, error
 	}
 
 	mod := &Module{
+		WorkingDir:    dir,
 		Root:          root,
 		GoModPath:     goModPath,
 		PackagePath:   pkgPath,
@@ -108,6 +110,7 @@ func WithHeaderComment(template string) ModuleOption {
 // ---
 
 type Module struct {
+	WorkingDir    string
 	Root          string
 	GoModPath     string
 	PackagePath   string
@@ -123,28 +126,17 @@ func (m *Module) Files() map[string]*File {
 }
 
 func (m *Module) DiscoverFiles() error {
-	env := m.Config.env()
-	return filepath.WalkDir(m.Root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		ext := filepath.Ext(path)
-		if !env.IsSugarFile(ext) {
-			return nil
-		}
-
-		relPath, err := filepath.Rel(m.Root, path)
-		if err != nil {
-			return err
-		}
-
-		_, err = m.RegisterFile(relPath)
+	fps, err := m.Resolve("./...")
+	if err != nil {
 		return err
-	})
+	}
+	for _, fp := range fps {
+		_, err = m.RegisterFile(fp.RelPath)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (m *Module) RegisterFile(relPath string) (*File, error) {
@@ -225,6 +217,19 @@ func (m *Module) Generate() (map[*File][]byte, error) {
 	return result, errors.Join(errs...)
 }
 
+func (m *Module) FormatFile(relPath string) ([]byte, error) {
+	f, ok := m.File(relPath)
+	if !ok {
+		return nil, fmt.Errorf("file not found: %s", relPath)
+	}
+
+	formatted, err := format.Source(f.StructuralTransform())
+	if err != nil {
+		return nil, err
+	}
+	return RestoreTransform(formatted), nil
+}
+
 func (m *Module) prependHeaderComment(content []byte) []byte {
 	headerComment := m.headerComment
 	if headerComment == "" {
@@ -278,6 +283,88 @@ func (m *Module) filePkgPath(relPath string) string {
 		return m.PackagePath
 	}
 	return m.PackagePath + "/" + filepath.ToSlash(dir)
+}
+
+func (m *Module) Resolve(inputs ...string) ([]FilePath, error) {
+	var result []FilePath
+	for _, input := range inputs {
+		if strings.HasSuffix(input, "/...") {
+			dir := strings.TrimSuffix(input, "/...")
+			p := filepath.Join(m.WorkingDir, dir)
+			err := m.walkDir(p, &result, true)
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		p := filepath.Join(m.WorkingDir, input)
+		info, _ := os.Stat(p)
+		if info.IsDir() {
+			err := m.walkDir(p, &result, false)
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		// add file
+		fp, err := m.makeFilePath(p)
+		if err != nil {
+			return nil, err
+		}
+
+		if fp != nil {
+			result = append(result, *fp)
+		}
+	}
+
+	slices.SortFunc(result, func(a, b FilePath) int {
+		return strings.Compare(a.DisplayPath, b.DisplayPath)
+	})
+	return result, nil
+}
+
+func (m *Module) walkDir(dir string, result *[]FilePath, recursive bool) error {
+	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			if !recursive && path != dir {
+				return fs.SkipDir
+			}
+			return nil
+		}
+
+		fp, err := m.makeFilePath(path)
+		if err != nil {
+			return err
+		}
+
+		if fp != nil {
+			*result = append(*result, *fp)
+		}
+		return nil
+	})
+}
+
+func (m *Module) makeFilePath(path string) (*FilePath, error) {
+	ext := filepath.Ext(path)
+	if !m.Config.Env.IsSugarFile(ext) {
+		return nil, nil
+	}
+
+	relPath, err := filepath.Rel(m.Root, path)
+	if err != nil {
+		return nil, err
+	}
+	displayPath, err := filepath.Rel(m.WorkingDir, path)
+	if err != nil {
+		return nil, err
+	}
+	return &FilePath{RelPath: relPath, AbsPath: path, DisplayPath: displayPath}, nil
 }
 
 var _ moduleAPI = (*Module)(nil)
