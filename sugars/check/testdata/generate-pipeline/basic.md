@@ -1,4 +1,4 @@
-## Generate Basic Golden Test
+## Basic
 
 given a go module
 

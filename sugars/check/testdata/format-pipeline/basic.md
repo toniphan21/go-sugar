@@ -1,0 +1,43 @@
+## Format Pipeline
+
+given a go module
+```go.mod
+module github.com/you/repo
+
+go 1.24
+```
+
+given the input:
+```gos
+// file: input.gos
+package example
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func test() {x := check doSomething()
+	y := check strconv.Atoi(            "123")
+
+	fmt.Println(x, y)
+}
+```
+
+the formatted output is:
+```gos
+// golden-file: output.gos
+package example
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func test() {
+	x := check doSomething()
+	y := check strconv.Atoi("123")
+
+	fmt.Println(x, y)
+}
+```

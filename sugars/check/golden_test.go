@@ -9,6 +9,46 @@ import (
 	"nhatp.com/go/sugar/sugartest"
 )
 
+//go:embed testdata/generate-pipeline/*.md
+var mdGeneratePipeline embed.FS
+
+func Test_GoldenGenerate_Files(t *testing.T) {
+	fs := mdGeneratePipeline
+	run := func(t *testing.T, testCase gentest.MarkdownTestCase) {
+		sugar.Register(New())
+		sugartest.RunGoldenGeneratePipelineTest(t, testCase)
+	}
+
+	t.Run("dev", func(t *testing.T) {
+		file := "testdata/generate-pipeline/basic.md"
+		gentest.RunEmbedGoldenFile(t, fs, file, run)
+	})
+
+	t.Run("embed", func(t *testing.T) {
+		gentest.RunEmbedGoldenFiles(t, fs, run)
+	})
+}
+
+//go:embed testdata/format-pipeline/*.md
+var mdFormatPipeline embed.FS
+
+func Test_GoldenFormat_Files(t *testing.T) {
+	fs := mdFormatPipeline
+	run := func(t *testing.T, testCase gentest.MarkdownTestCase) {
+		sugar.Register(New())
+		sugartest.RunGoldenFormatPipelineTest(t, testCase)
+	}
+
+	t.Run("dev", func(t *testing.T) {
+		file := "testdata/format-pipeline/basic.md"
+		gentest.RunEmbedGoldenFile(t, fs, file, run)
+	})
+
+	t.Run("embed", func(t *testing.T) {
+		gentest.RunEmbedGoldenFiles(t, fs, run)
+	})
+}
+
 //go:embed testdata/structural-transform/*.md
 var mdStructuralTransform embed.FS
 

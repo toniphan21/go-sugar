@@ -204,31 +204,44 @@ func lsp(stdin, stdout, stderr *os.File, args []string, runner Runner[lspcmd.Arg
 
 const goldenUsageText = `usage: go-sugar golden [flags] FILE [FILE ...]
 
-Run Markdown golden tests. By default, tests the "generate" pipeline.
+Run Markdown golden tests. If no pipeline flag is given, defaults to -gen.
 
 Arguments:
   FILE              Markdown test files to run.
 
 Flags:
-  -t1, -structural  Run T1 StructuralTransform test.
-  -t2, -semantic    Run T2 SemanticTransform test.
-  -t3, -restore     Run T3 RestoreTransform test.
-  -n, -name         Run tests matching a name. (case insensitive)
-  -s, -show-setup   Show test setup steps. (default: false)
-  -t, -tab-size     Number of spaces per tab. (default: 8)
-  -e, -emit-code    Emit code if the test passes. If empty, looks for path in a Markdown comment.
-  -log              The file to log the command output to, or leave empty to disable logging.
-  -v                Set log verbosity level to "debug". (default "info")
-  -no-color         Disable color output.
-  -h, -help         Print this help message and exit.
+  -t1,  -structural  Run T1 StructuralTransform test.
+  -t2,  -semantic    Run T2 SemanticTransform test.
+  -t3,  -restore     Run T3 RestoreTransform test.
+  -fmt, -format      Run format pipeline test (T1 + gofmt + T3).
+  -gen, -generate    Run generate pipeline test (T1 + T2 + gofmt).
+  -n, -name          Filter tests by name. (case insensitive)
+  -s, -show-setup    Show test setup steps. (default: false)
+  -t, -tab-size      Number of spaces per tab. (default: 8)
+  -e, -emit-code     Emit code if the test passes. If empty, looks for path in a Markdown comment.
+  -log               The file to log the command output to, or leave empty to disable logging.
+  -v                 Set log verbosity level to "debug". (default "info")
+  -no-color          Disable color output.
+  -h, -help          Print this help message and exit.
 
 `
 
 func golden(stdin, stdout, stderr *os.File, args []string, runner Runner[goldencmd.Arguments]) int {
 	cmd := flag.NewFlagSet("lsp", flag.ContinueOnError)
-	t1 := cmd.Bool("t1", false, "")
-	t2 := cmd.Bool("t2", false, "")
-	t3 := cmd.Bool("t3", false, "")
+	t1s := cmd.Bool("t1", false, "")
+	t1l := cmd.Bool("structural", false, "")
+
+	t2s := cmd.Bool("t2", false, "")
+	t2l := cmd.Bool("semantic", false, "")
+
+	t3s := cmd.Bool("t3", false, "")
+	t3l := cmd.Bool("restore", false, "")
+
+	tfs := cmd.Bool("fmt", false, "")
+	tfl := cmd.Bool("format", false, "")
+
+	tgs := cmd.Bool("gen", false, "")
+	tgl := cmd.Bool("generate", false, "")
 
 	n := cmd.String("n", "", "")
 	name := cmd.String("name", "", "")
@@ -250,6 +263,7 @@ func golden(stdin, stdout, stderr *os.File, args []string, runner Runner[goldenc
 
 	cmd.Usage = cmdUsage(stderr, goldenUsageText)
 	reorderableFlags := []string{
+		"t1", "structural", "t2", "semantic", "t3", "restore", "fmt", "format", "gen", "generate",
 		"n", "name", "s", "show-setup", "t", "tab-size", "e", "emit-code", "log", "v", "no-color",
 	}
 	if err := cmd.Parse(reorderArgs(args, reorderableFlags...)); err != nil {
@@ -271,14 +285,18 @@ func golden(stdin, stdout, stderr *os.File, args []string, runner Runner[goldenc
 		LogLevel:  logLevel(verbosity),
 	}
 	switch {
-	case *t1:
+	case *t1s || *t1l:
 		arg.Type = goldencmd.TypeStructuralTransform
-	case *t2:
+	case *t2s || *t2l:
 		arg.Type = goldencmd.TypeSemanticTransform
-	case *t3:
+	case *t3s || *t3l:
 		arg.Type = goldencmd.TypeRestoreTransform
+	case *tfs || *tfl:
+		arg.Type = goldencmd.TypeFormatPipeline
+	case *tgs || *tgl:
+		arg.Type = goldencmd.TypeGeneratePipeline
 	default:
-		arg.Type = goldencmd.TypeGenerate
+		arg.Type = goldencmd.TypeGeneratePipeline
 	}
 	return invokeRunner(stdin, stdout, stderr, arg, runner, printUsage(stderr, goldenUsageText))
 }

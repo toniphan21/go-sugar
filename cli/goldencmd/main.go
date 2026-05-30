@@ -30,10 +30,11 @@ func (e *errNoFileSpecified) Error() string {
 type Type int
 
 const (
-	TypeGenerate Type = iota
+	TypeGeneratePipeline Type = iota
 	TypeStructuralTransform
 	TypeSemanticTransform
 	TypeRestoreTransform
+	TypeFormatPipeline
 )
 
 type Arguments struct {
@@ -87,7 +88,7 @@ func run(stdin io.Reader, stdout, stderr io.Writer, args Arguments, log *slog.Lo
 	}
 
 	switch args.Type {
-	case TypeGenerate:
+	case TypeGeneratePipeline:
 		runGenerate(cmd)
 	case TypeStructuralTransform:
 		runStructuralTransform(cmd)
@@ -95,45 +96,25 @@ func run(stdin io.Reader, stdout, stderr io.Writer, args Arguments, log *slog.Lo
 		runSemanticTransform(cmd)
 	case TypeRestoreTransform:
 		runRestoreTransform(cmd)
+	case TypeFormatPipeline:
+		runFormat(cmd)
 	}
 	return nil
 }
 
 func runGenerate(cmd *cli.TestRunner) {
-	cmd.Print("Running tests with " + color.Binary(sugar.BinaryName) + " " + color.Version(sugar.BinaryVersion))
-	cmd.Print("")
+	printTestType(cmd, "Generate Pipeline")
 	cmd.RunTestCase = func(tc cli.TestCase, options map[string]any) (genlib.FileManager, error) {
-		dir := tc.TestDir
-		if err := genlib.SetupSourceCode(dir, tc.SourceFiles); err != nil {
-			return nil, err
+		mtc := gentest.MarkdownTestCase{
+			SourceFiles: tc.SourceFiles,
 		}
-
-		mod, err := sugar.NewModule(dir, sugar.DefaultConfig())
-		if err != nil {
-			return nil, err
-		}
-
-		files, err := mod.Generate()
-		if err != nil {
-			return nil, err
-		}
-
-		fm := genlib.NewFileManager(dir)
-		for f, content := range files {
-			relPath := f.GoPath()
-			absPath := filepath.Join(dir, relPath)
-			if err = fm.Add(&file.GoFile{Path: absPath, Content: string(content)}); err != nil {
-				return nil, err
-			}
-		}
-		return fm, nil
+		return sugartest.PerformGeneratePipeline(tc.TestDir, sugar.DefaultConfig(), mtc)
 	}
 	cmd.Run()
 }
 
 func runStructuralTransform(cmd *cli.TestRunner) {
-	cmd.Print("Running " + color.Source("T1 - StructuralTransform") + " tests with " + color.Binary(sugar.BinaryName) + " " + color.Version(sugar.BinaryVersion))
-	cmd.Print("")
+	printTestType(cmd, "T1 - StructuralTransform")
 	cmd.RunTestCase = func(tc cli.TestCase, options map[string]any) (genlib.FileManager, error) {
 		return runTransformTest(tc, "output.go", sugartest.PerformStructuralTransform)
 	}
@@ -141,8 +122,7 @@ func runStructuralTransform(cmd *cli.TestRunner) {
 }
 
 func runSemanticTransform(cmd *cli.TestRunner) {
-	cmd.Print("Running " + color.Source("T2 - SemanticTransform") + " tests with " + color.Binary(sugar.BinaryName) + " " + color.Version(sugar.BinaryVersion))
-	cmd.Print("")
+	printTestType(cmd, "T2 - SemanticTransform")
 	cmd.RunTestCase = func(tc cli.TestCase, options map[string]any) (genlib.FileManager, error) {
 		return runTransformTest(tc, "output.go", sugartest.PerformSemanticTransform)
 	}
@@ -150,10 +130,17 @@ func runSemanticTransform(cmd *cli.TestRunner) {
 }
 
 func runRestoreTransform(cmd *cli.TestRunner) {
-	cmd.Print("Running " + color.Source("T3 - RestoreTransform") + " tests with " + color.Binary(sugar.BinaryName) + " " + color.Version(sugar.BinaryVersion))
-	cmd.Print("")
+	printTestType(cmd, "T3 - RestoreTransform")
 	cmd.RunTestCase = func(tc cli.TestCase, options map[string]any) (genlib.FileManager, error) {
 		return runTransformTest(tc, "output.gos", sugartest.PerformRestoreTransform)
+	}
+	cmd.Run()
+}
+
+func runFormat(cmd *cli.TestRunner) {
+	printTestType(cmd, "Format Pipeline")
+	cmd.RunTestCase = func(tc cli.TestCase, options map[string]any) (genlib.FileManager, error) {
+		return runTransformTest(tc, "output.gos", sugartest.PerformFormatPipeline)
 	}
 	cmd.Run()
 }
@@ -174,4 +161,9 @@ func runTransformTest(tc cli.TestCase, outFileName string, transform func(string
 		return nil, fmt.Errorf("cannot add output.go to FileManager: %w", err)
 	}
 	return fm, nil
+}
+
+func printTestType(cmd *cli.TestRunner, typeName string) {
+	cmd.Print("Running " + cli.ColorYellow(typeName) + " golden tests with " + color.Binary(sugar.BinaryName) + " " + color.Version(sugar.BinaryVersion))
+	cmd.Print("")
 }
