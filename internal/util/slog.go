@@ -7,11 +7,13 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"sync"
 )
 
 // ---
 
 type cliHandler struct {
+	mu     sync.Mutex
 	writer io.Writer
 	level  slog.Level
 }
@@ -52,6 +54,8 @@ func (h *cliHandler) Handle(_ context.Context, r slog.Record) error {
 		return true
 	})
 
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	_, err := fmt.Fprintf(h.writer, "%s%s\n", msg, attrs)
 	return err
 }

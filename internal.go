@@ -24,6 +24,8 @@ type fileAPI interface {
 	GoPath() string
 
 	Update(content []byte)
+
+	Content() []byte
 }
 
 type moduleAPI interface {

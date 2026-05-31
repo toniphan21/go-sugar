@@ -16,3 +16,8 @@ func returnErrorOnly() error {
 func doSomething() error {
 	return nil
 }
+
+// good
+func newFunc() error {
+	return nil
+}

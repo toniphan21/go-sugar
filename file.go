@@ -18,12 +18,6 @@ func newFile(relPath, goFilePath string, content []byte) *File {
 	}
 }
 
-type FilePath struct {
-	RelPath     string
-	AbsPath     string
-	DisplayPath string
-}
-
 type FileError struct {
 	File   File
 	Action string
@@ -88,7 +82,6 @@ func collectError(fe *FileErrors, err error) error {
 
 type File struct {
 	hash      [32]byte
-	content   []byte
 	sugarPath string
 	goPath    string
 	current   *Snapshot
@@ -104,6 +97,10 @@ func (f *File) GoPath() string {
 
 func (f *File) Update(content []byte) {
 	f.current = newSnapshot(content)
+}
+
+func (f *File) Content() []byte {
+	return f.current.source
 }
 
 func (f *File) StructuralTransform() []byte {

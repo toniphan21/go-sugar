@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"go/format"
 	"go/token"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"golang.org/x/mod/modfile"
@@ -126,10 +124,15 @@ func (m *Module) Files() map[string]*File {
 }
 
 func (m *Module) DiscoverFiles() error {
-	fps, err := m.Resolve("./...")
+	targets, err := m.Resolve("./...")
 	if err != nil {
 		return err
 	}
+	fps, err := targets.Resolve()
+	if err != nil {
+		return err
+	}
+
 	for _, fp := range fps {
 		_, err = m.RegisterFile(fp.RelPath)
 		if err != nil {
@@ -198,32 +201,45 @@ func (m *Module) SemanticTransform() error {
 	return nil
 }
 
-// Generate performs T2 SemanticTransform then formats the generated code with gofmt. Returns a map File -> content.
+// Generate performs generate pipeline for all managed Files
 func (m *Module) Generate() (map[*File][]byte, error) {
-	if err := m.SemanticTransform(); err != nil {
-		return nil, err
-	}
-
 	result := make(map[*File][]byte)
 	var errs []error
 	for _, f := range m.Files() {
-		content, err := format.Source(f.SemanticTransform())
+		content, err := m.GenerateFile(f)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
-		result[f] = m.prependHeaderComment(content)
+		result[f] = content
 	}
 	return result, errors.Join(errs...)
 }
 
-func (m *Module) FormatFile(relPath string) ([]byte, error) {
-	f, ok := m.File(relPath)
-	if !ok {
-		return nil, fmt.Errorf("file not found: %s", relPath)
+// GenerateFile performs generate pipeline given File
+func (m *Module) GenerateFile(file *File) ([]byte, error) {
+	file.StructuralTransform()
+	content, err := format.Source(file.SemanticTransform())
+	if err != nil {
+		return nil, err
 	}
+	return m.prependHeaderComment(content), nil
+}
 
-	formatted, err := format.Source(f.StructuralTransform())
+func (m *Module) GenerateOnDemand(relPath string, content []byte) (string, []byte, error) {
+	env := m.Config.env()
+	goFilePath := env.GoFilePath(relPath)
+
+	f := newFile(relPath, goFilePath, content)
+	generated, err := m.GenerateFile(f)
+	if err != nil {
+		return "", nil, err
+	}
+	return goFilePath, generated, nil
+}
+
+func (m *Module) FormatFile(file *File) ([]byte, error) {
+	formatted, err := format.Source(file.StructuralTransform())
 	if err != nil {
 		return nil, err
 	}
@@ -285,86 +301,68 @@ func (m *Module) filePkgPath(relPath string) string {
 	return m.PackagePath + "/" + filepath.ToSlash(dir)
 }
 
-func (m *Module) Resolve(inputs ...string) ([]FilePath, error) {
-	var result []FilePath
+func (m *Module) Resolve(inputs ...string) (TargetCollection, error) {
+	var result []Target
 	for _, input := range inputs {
 		if strings.HasSuffix(input, "/...") {
 			dir := strings.TrimSuffix(input, "/...")
 			p := filepath.Join(m.WorkingDir, dir)
-			err := m.walkDir(p, &result, true)
+			info, err := os.Stat(p)
 			if err != nil {
 				return nil, err
 			}
+			if !info.IsDir() {
+				return nil, fmt.Errorf("%s is not a directory", p)
+			}
+
+			// recursive dir Target
+			result = append(result, Target{
+				Config:     m.Config,
+				Root:       m.Root,
+				WorkingDir: m.WorkingDir,
+				Input:      input,
+
+				Path:      p,
+				IsDir:     true,
+				Recursive: true,
+			})
 			continue
 		}
 
 		p := filepath.Join(m.WorkingDir, input)
-		info, _ := os.Stat(p)
-		if info.IsDir() {
-			err := m.walkDir(p, &result, false)
-			if err != nil {
-				return nil, err
-			}
-			continue
-		}
-
-		// add file
-		fp, err := m.makeFilePath(p)
+		info, err := os.Stat(p)
 		if err != nil {
 			return nil, err
 		}
 
-		if fp != nil {
-			result = append(result, *fp)
-		}
-	}
+		if info.IsDir() {
+			// non recursive dir Target
+			result = append(result, Target{
+				Config:     m.Config,
+				Root:       m.Root,
+				WorkingDir: m.WorkingDir,
+				Input:      input,
 
-	slices.SortFunc(result, func(a, b FilePath) int {
-		return strings.Compare(a.DisplayPath, b.DisplayPath)
-	})
+				Path:      p,
+				IsDir:     true,
+				Recursive: false,
+			})
+			continue
+		}
+
+		// add file Target
+		result = append(result, Target{
+			Config:     m.Config,
+			Root:       m.Root,
+			WorkingDir: m.WorkingDir,
+			Input:      input,
+
+			Path:      p,
+			IsDir:     false,
+			Recursive: false,
+		})
+	}
 	return result, nil
-}
-
-func (m *Module) walkDir(dir string, result *[]FilePath, recursive bool) error {
-	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() {
-			if !recursive && path != dir {
-				return fs.SkipDir
-			}
-			return nil
-		}
-
-		fp, err := m.makeFilePath(path)
-		if err != nil {
-			return err
-		}
-
-		if fp != nil {
-			*result = append(*result, *fp)
-		}
-		return nil
-	})
-}
-
-func (m *Module) makeFilePath(path string) (*FilePath, error) {
-	ext := filepath.Ext(path)
-	if !m.Config.Env.IsSugarFile(ext) {
-		return nil, nil
-	}
-
-	relPath, err := filepath.Rel(m.Root, path)
-	if err != nil {
-		return nil, err
-	}
-	displayPath, err := filepath.Rel(m.WorkingDir, path)
-	if err != nil {
-		return nil, err
-	}
-	return &FilePath{RelPath: relPath, AbsPath: path, DisplayPath: displayPath}, nil
 }
 
 var _ moduleAPI = (*Module)(nil)

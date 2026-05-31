@@ -10,7 +10,7 @@ import (
 
 func main() {
 	args := os.Args
-	args = []string{"go-sugar", "test", "-s", "./sugars/check/testdata/generate/basic.md"}
+	args = []string{"go-sugar", "gen", "-w", "./example/hellos.gos"}
 
 	code := cli.Run(os.Stdin, os.Stdout, os.Stderr, args)
 	if code != 0 {

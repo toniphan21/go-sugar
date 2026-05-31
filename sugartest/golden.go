@@ -129,11 +129,11 @@ func PerformFormatPipeline(dir string, config sugar.Config, tc gentest.MarkdownT
 		return nil, err
 	}
 
-	_, ok := mod.File("input.gos")
+	f, ok := mod.File("input.gos")
 	if !ok {
 		return nil, errors.New("cannot find input.gos file")
 	}
-	return mod.FormatFile("input.gos")
+	return mod.FormatFile(f)
 }
 
 func RunGoldenStructuralTransformTest(t *testing.T, tc gentest.MarkdownTestCase) {

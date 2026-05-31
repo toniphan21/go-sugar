@@ -27,12 +27,13 @@ go-sugar - a superset of go with sugar.
 See docs at https://nhatp.com/go/sugar
 
 commands:
-  fmt       Format gos files
-  lsp       Starts a language server for gos files
-  info      Displays information about go-sugar environment
-  generate  Generate Go code from gos file
-  golden    Run Markdown golden tests
-  version   Prints the version
+  fmt      Format go-sugar files (alias: format)
+  gen      Generate Go code from go-sugar file (alias: generate)
+  lsp      Start a language server for go-sugar files
+  test     Run tests via 'go test' after generating go-sugar files
+  info     Display information about go-sugar environment
+  golden   Run Markdown golden tests
+  version  Print the version
 
 `
 
@@ -76,6 +77,7 @@ If no arguments are given, defaults to the current directory (non-recursive).
 
 Flags:
   -d, -dry   Preview changes without writing to disk.
+  -json      Output results as JSON. Implies -dry.
   -no-color  Disable color output.
   -h, -help  Print this help message and exit.
 
@@ -86,13 +88,15 @@ func format(stdin, stdout, stderr *os.File, args []string, runner Runner[fmtcmd.
 	d := cmd.Bool("d", false, "Preview changes without writing to disk")
 	dry := cmd.Bool("dry", false, "Preview changes without writing to disk")
 
+	json := cmd.Bool("json", false, "Output results as JSON. Implies -dry.")
+
 	noColor := cmd.Bool("no-color", false, "")
 	h := cmd.Bool("h", false, "")
 	help := cmd.Bool("help", false, "")
 
 	cmd.Usage = cmdUsage(stderr, fmtUsageText)
 	reorderableFlags := []string{
-		"d", "dry", "no-color",
+		"d", "dry", "json", "no-color",
 	}
 	if err := cmd.Parse(reorderArgs(args, reorderableFlags...)); err != nil {
 		return codeExUsage
@@ -105,24 +109,31 @@ func format(stdin, stdout, stderr *os.File, args []string, runner Runner[fmtcmd.
 
 	arg := fmtcmd.Arguments{
 		Args:   cmd.Args(),
-		DryRun: *d || *dry,
+		DryRun: *d || *dry || *json,
+		JSON:   *json,
 	}
 	return invokeRunner(stdin, stdout, stderr, arg, runner, printUsage(stderr, generateUsageText))
 }
 
 // ---
 
-const generateUsageText = `usage: go-sugar generate [flags]
+const generateUsageText = `usage: go-sugar generate [flags] [FILE|DIR|PATTERN...]
 
 Generates Go code from go-sugar files.
 
+  ./     Generate from go-sugar files in the current directory.
+  ./...  Generate from go-sugar files in the current directory tree, recursively.
+
+If no arguments are given, defaults to the current directory (non-recursive).
+
 Flags:
-  -w, -working-dir  The working directory to use when generating the code. (default ".")
-  -d, -dry          Preview changes without writing to disk.
-  -log              The file to log the command output to, or leave empty to disable logging.
-  -v                Set log verbosity level to "debug". (default "info")
-  -no-color         Disable color output.
-  -h, -help         Print this help message and exit.
+  -w, -watch  Watch and generate when targets change.
+  -d, -dry    Preview changes without writing to disk.
+  -json       Output results as JSON. Implies -dry.
+  -log FILE   The file to log the command output to.
+  -v          Set log verbosity level to "debug". (default "info")
+  -no-color   Disable color output.
+  -h, -help   Print this help message and exit.
 
 `
 
@@ -130,11 +141,13 @@ func generate(stdin, stdout, stderr *os.File, args []string, runner Runner[gener
 	cmd := flag.NewFlagSet("lsp", flag.ContinueOnError)
 	log := cmd.String("log", "", "The file to log the command output to")
 
-	w := cmd.String("w", ".", "The working directory to use when generating the code")
-	workingDir := cmd.String("working-dir", ".", "The working directory to use when generating the code")
+	w := cmd.Bool("w", false, "Watch and generate when targets change.")
+	watch := cmd.Bool("watch", false, "Watch and generate when targets change.")
 
 	d := cmd.Bool("d", false, "Preview changes without writing to disk")
 	dry := cmd.Bool("dry", false, "Preview changes without writing to disk")
+
+	json := cmd.Bool("json", false, "Output results as JSON. Implies -dry.")
 
 	verbosity := cmd.Bool("v", false, "Set log verbosity level to debug")
 	noColor := cmd.Bool("no-color", false, "")
@@ -143,7 +156,7 @@ func generate(stdin, stdout, stderr *os.File, args []string, runner Runner[gener
 
 	cmd.Usage = cmdUsage(stderr, generateUsageText)
 	reorderableFlags := []string{
-		"w", "working-dir", "d", "dry", "v", "no-color",
+		"w", "watch", "d", "dry", "json", "v", "no-color",
 	}
 	if err := cmd.Parse(reorderArgs(args, reorderableFlags...)); err != nil {
 		return codeExUsage
@@ -155,10 +168,12 @@ func generate(stdin, stdout, stderr *os.File, args []string, runner Runner[gener
 	}
 
 	arg := generatecmd.Arguments{
-		WorkingDir: flagVal(w, workingDir),
-		DryRun:     *d || *dry,
-		Log:        flagVal(log),
-		LogLevel:   logLevel(verbosity),
+		Args:     cmd.Args(),
+		Watch:    *w || *watch,
+		DryRun:   *d || *dry || *json,
+		JSON:     *json,
+		Log:      flagVal(log),
+		LogLevel: logLevel(verbosity),
 	}
 	return invokeRunner(stdin, stdout, stderr, arg, runner, printUsage(stderr, generateUsageText))
 }
@@ -170,7 +185,7 @@ const lspUsageText = `usage: go-sugar lsp [flags]
 Starts a language server for go-sugar files.
 
 Flags:
-  -log       The file to log the command output to, or leave empty to disable logging.
+  -log FILE  The file to log the command output to.
   -v         Set log verbosity level to "debug". (default "info")
   -h, -help  Print this help message and exit.
 
@@ -210,11 +225,11 @@ Arguments:
   FILE              Markdown test files to run.
 
 Flags:
-  -t1,  -structural  Run T1 StructuralTransform test.
-  -t2,  -semantic    Run T2 SemanticTransform test.
-  -t3,  -restore     Run T3 RestoreTransform test.
-  -fmt, -format      Run format pipeline test (T1 + gofmt + T3).
-  -gen, -generate    Run generate pipeline test (T1 + T2 + gofmt).
+  -t1,  -structural  Run T1 StructuralTransform golden test.
+  -t2,  -semantic    Run T2 SemanticTransform golden test.
+  -t3,  -restore     Run T3 RestoreTransform golden test.
+  -fmt, -format      Run format pipeline golden test (T1 + gofmt + T3).
+  -gen, -generate    Run generate pipeline golden test (T1 + T2 + gofmt).
   -n, -name          Filter tests by name. (case insensitive)
   -s, -show-setup    Show test setup steps. (default: false)
   -t, -tab-size      Number of spaces per tab. (default: 8)
