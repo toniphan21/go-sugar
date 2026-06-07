@@ -37,6 +37,7 @@ type SugarPlaceholderFunc struct {
 	end      sugar.Lexeme
 	innerPos sugar.Lexeme
 	innerEnd sugar.Lexeme
+	body     []sugar.Lexeme
 	keyword  string
 }
 
@@ -60,6 +61,10 @@ func (n SugarPlaceholderFunc) Keyword() string {
 	return n.keyword
 }
 
+func (n SugarPlaceholderFunc) Body() []sugar.Lexeme {
+	return n.body
+}
+
 const SugarPlaceholderFuncID = "lex.SugarPlaceholderFunc"
 
 func SugarPlaceholderFuncName(keyword string) string {
@@ -81,12 +86,18 @@ func SugarPlaceholderFuncParser(keyword string) sugar.LexicalParser {
 	doCollectInnerPos := builder.Collect("inner-pos", func(n *SugarPlaceholderFunc, l sugar.Lexeme) {
 		n.innerPos = l
 	})
+	doCollectBody := builder.Collect("body", func(n *SugarPlaceholderFunc, l sugar.Lexeme) {
+		n.body = append(n.body, l)
+	})
 	doIncDeep := builder.Collect("inc", func(n *SugarPlaceholderFunc, l sugar.Lexeme) {
 		builder.CounterInc(deep)
 	})
 	doDecDeep := builder.Collect("inc", func(n *SugarPlaceholderFunc, l sugar.Lexeme) {
 		builder.CounterDec(deep)
 		n.innerEnd = l
+		if builder.Counter(deep) != 0 {
+			n.body = append(n.body, l)
+		}
 	})
 	doCollect := builder.Collect("end", func(n *SugarPlaceholderFunc, l sugar.Lexeme) {
 		n.end = l
@@ -105,14 +116,14 @@ func SugarPlaceholderFuncParser(keyword string) sugar.LexicalParser {
 		Add(start, see.Any, end, doFail).
 		Add(expectLParen, see.LeftParen, expectAny, doIncDeep).
 		Add(expectLParen, see.Any, end, doFail).
-		Add(expectAny, see.LeftParen, running, doIncDeep, doCollectInnerPos).
+		Add(expectAny, see.LeftParen, running, doIncDeep, doCollectInnerPos, doCollectBody).
 		Add(expectAny, see.RightParen, end, doFail).
 		Add(expectAny, see.StatementBoundary, end, doFail).
-		Add(expectAny, see.Any, running, doCollectInnerPos).
-		Add(running, see.LeftParen, running, doIncDeep).
+		Add(expectAny, see.Any, running, doCollectInnerPos, doCollectBody).
+		Add(running, see.LeftParen, running, doIncDeep, doCollectBody).
 		Add(running, see.RightParen, running, doDecDeep).
 		Add(running, see.StatementBoundary, end, doAtStatementBoundary).
-		Add(running, see.Any, running)
+		Add(running, see.Any, running, doCollectBody)
 
 	return sugar.NewLexicalParser(SugarPlaceholderFuncID, table, start, end, builder)
 }

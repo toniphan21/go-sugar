@@ -12,6 +12,7 @@ type sugarPlaceholderFuncNode struct {
 	end      int
 	innerPos int
 	innerEnd int
+	bodyLen  int
 }
 
 func sugarPlaceholderFuncNodeComparison(want sugarPlaceholderFuncNode, got SugarPlaceholderFunc) (string, bool) {
@@ -29,6 +30,10 @@ func sugarPlaceholderFuncNodeComparison(want sugarPlaceholderFuncNode, got Sugar
 
 	if want.innerEnd != int(got.innerEnd.Pos) {
 		return fmt.Sprintf("got pos=%d, want %d", int(got.innerEnd.Pos), want.innerEnd), false
+	}
+
+	if want.bodyLen != len(got.body) {
+		return fmt.Sprintf("got len(body)=%d, want %d", len(got.body), want.bodyLen), false
 	}
 
 	return "", true
@@ -63,13 +68,13 @@ func Test_SugarFunc(t *testing.T) {
 		{
 			Name:     "valid: wrap literal",
 			Code:     `__sugar_test__(123)`,
-			Expected: lextest.Nodes(sugarPlaceholderFuncNode{pos: 1, end: 20, innerPos: 16, innerEnd: 19}),
+			Expected: lextest.Nodes(sugarPlaceholderFuncNode{pos: 1, end: 20, innerPos: 16, innerEnd: 19, bodyLen: 1}),
 		},
 
 		{
 			Name:     "valid: wrap function call",
 			Code:     `__sugar_test__(doSomething(""))`,
-			Expected: lextest.Nodes(sugarPlaceholderFuncNode{pos: 1, end: 32, innerPos: 16, innerEnd: 31}),
+			Expected: lextest.Nodes(sugarPlaceholderFuncNode{pos: 1, end: 32, innerPos: 16, innerEnd: 31, bodyLen: 4}),
 		},
 
 		{
@@ -78,7 +83,15 @@ func Test_SugarFunc(t *testing.T) {
 x := 1
 __sugar_test__(doSomething("any", x))
 }`,
-			Expected: lextest.Nodes(sugarPlaceholderFuncNode{pos: 22, end: 59, innerPos: 37, innerEnd: 58}),
+			Expected: lextest.Nodes(sugarPlaceholderFuncNode{pos: 22, end: 59, innerPos: 37, innerEnd: 58, bodyLen: 6}),
+		},
+
+		{
+			Name: "valid: wrap function call with multi params",
+			Code: `func test() {
+__sugar_test__(doSomething("any") ,"message" ,a ,b)
+}`,
+			Expected: lextest.Nodes(sugarPlaceholderFuncNode{pos: 15, end: 66, innerPos: 30, innerEnd: 65, bodyLen: 10}),
 		},
 	}
 

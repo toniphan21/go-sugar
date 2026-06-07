@@ -4,107 +4,43 @@ import (
 	"embed"
 	"testing"
 
-	"nhatp.com/go/gen-lib/gentest"
 	"nhatp.com/go/sugar"
-	"nhatp.com/go/sugar/sugartest"
+	"nhatp.com/go/sugar/sugartest/golden"
 )
 
-//go:embed testdata/generate-pipeline/*.md
-var mdGeneratePipeline embed.FS
+//go:embed testdata
+var testdata embed.FS
 
-func Test_GoldenGenerate_Files(t *testing.T) {
-	fs := mdGeneratePipeline
-	run := func(t *testing.T, testCase gentest.MarkdownTestCase) {
-		sugar.Register(New())
-		sugartest.RunGoldenGeneratePipelineTest(t, testCase)
+func Test_Golden(t *testing.T) {
+	sugar.Register(New())
+
+	suite := []golden.TestSuite{
+		{Name: "generate", FS: testdata, Match: "testdata/generate-pipeline/*.md", Run: golden.GeneratePipeline},
+		{Name: "format", FS: testdata, Match: "testdata/format-pipeline/*.md", Run: golden.FormatPipeline},
+		{Name: "t1", FS: testdata, Match: "testdata/structural-transform/*.md", Run: golden.StructuralTransform},
+		{Name: "t2", FS: testdata, Match: "testdata/semantic-transform/*.md", Run: golden.SemanticTransform},
+		{Name: "t3", FS: testdata, Match: "testdata/restore-transform/*.md", Run: golden.RestoreTransform},
+
+		{
+			Name: "generate-dev", FS: testdata,
+			File: "testdata/generate-pipeline/basic.md",
+			Run:  golden.GeneratePipeline,
+		},
+
+		{
+			Name: "format-dev", FS: testdata,
+			File: "testdata/format-pipeline/basic.md",
+			Run:  golden.FormatPipeline,
+		},
 	}
 
-	t.Run("dev", func(t *testing.T) {
-		file := "testdata/generate-pipeline/basic.md"
-		gentest.RunEmbedGoldenFile(t, fs, file, run)
-	})
-
-	t.Run("embed", func(t *testing.T) {
-		gentest.RunEmbedGoldenFiles(t, fs, run)
-	})
-}
-
-//go:embed testdata/format-pipeline/*.md
-var mdFormatPipeline embed.FS
-
-func Test_GoldenFormat_Files(t *testing.T) {
-	fs := mdFormatPipeline
-	run := func(t *testing.T, testCase gentest.MarkdownTestCase) {
-		sugar.Register(New())
-		sugartest.RunGoldenFormatPipelineTest(t, testCase)
+	for _, tt := range suite {
+		t.Run(tt.Name, func(t *testing.T) {
+			for _, p := range tt.FilePaths() {
+				golden.Test(t, tt.FS, p, func(t *testing.T, tc golden.TestCase) {
+					tt.Run(t, tc)
+				})
+			}
+		})
 	}
-
-	t.Run("dev", func(t *testing.T) {
-		file := "testdata/format-pipeline/basic.md"
-		gentest.RunEmbedGoldenFile(t, fs, file, run)
-	})
-
-	t.Run("embed", func(t *testing.T) {
-		gentest.RunEmbedGoldenFiles(t, fs, run)
-	})
-}
-
-//go:embed testdata/structural-transform/*.md
-var mdStructuralTransform embed.FS
-
-func Test_GoldenStructuralTransform_Files(t *testing.T) {
-	fs := mdStructuralTransform
-	run := func(t *testing.T, testCase gentest.MarkdownTestCase) {
-		sugar.Register(New())
-		sugartest.RunGoldenStructuralTransformTest(t, testCase)
-	}
-
-	t.Run("dev", func(t *testing.T) {
-		file := "testdata/structural-transform/basic.md"
-		gentest.RunEmbedGoldenFile(t, fs, file, run)
-	})
-
-	t.Run("embed", func(t *testing.T) {
-		gentest.RunEmbedGoldenFiles(t, fs, run)
-	})
-}
-
-//go:embed testdata/semantic-transform/*.md
-var mdSemanticTransform embed.FS
-
-func Test_GoldenSemanticTransform_Files(t *testing.T) {
-	fs := mdSemanticTransform
-	run := func(t *testing.T, testCase gentest.MarkdownTestCase) {
-		sugar.Register(New())
-		sugartest.RunGoldenSemanticTransformTest(t, testCase)
-	}
-
-	t.Run("dev", func(t *testing.T) {
-		file := "testdata/semantic-transform/basic.md"
-		gentest.RunEmbedGoldenFile(t, fs, file, run)
-	})
-
-	t.Run("embed", func(t *testing.T) {
-		gentest.RunEmbedGoldenFiles(t, fs, run)
-	})
-}
-
-//go:embed testdata/restore-transform/*.md
-var mdRestoreTransform embed.FS
-
-func Test_GoldenRestoreTransform_Files(t *testing.T) {
-	fs := mdRestoreTransform
-	run := func(t *testing.T, testCase gentest.MarkdownTestCase) {
-		sugar.Register(New())
-		sugartest.RunGoldenRestoreTransformTest(t, testCase)
-	}
-
-	t.Run("dev", func(t *testing.T) {
-		file := "testdata/restore-transform/basic.md"
-		gentest.RunEmbedGoldenFile(t, fs, file, run)
-	})
-
-	t.Run("embed", func(t *testing.T) {
-		gentest.RunEmbedGoldenFiles(t, fs, run)
-	})
 }

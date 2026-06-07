@@ -49,3 +49,18 @@ func CompareOptionalPos(name string, want int, got *sugar.Lexeme) (string, bool)
 	}
 	return "", true
 }
+
+func CompareOptionalStrings(name string, want *string, got *string) (string, bool) {
+	if want != nil && got == nil {
+		return fmt.Sprintf("got %v=nil, want %v", name, *want), false
+	}
+
+	if want == nil && got != nil {
+		return fmt.Sprintf("got %v=%v, want=nil", name, *got), false
+	}
+
+	if want != nil && got != nil && *got != *want {
+		return fmt.Sprintf("got %v=%v, want=%v", name, *got, *want), false
+	}
+	return "", true
+}

@@ -66,6 +66,12 @@ func Test_CallSuffix(t *testing.T) {
 		},
 
 		{
+			Name:     "valid: one with ident and literal follow by literal",
+			Code:     `(a, true, "123") "message"`,
+			Expected: lextest.Nodes(callSuffixNode{pos: 1, end: 18}),
+		},
+
+		{
 			Name:     "valid: first one failed, second one ok",
 			Code:     "call(a\ncall(b)",
 			Expected: lextest.Nodes(callSuffixNode{pos: 12, end: 15}),
@@ -81,6 +87,14 @@ func Test_CallSuffix(t *testing.T) {
 			Name:     "valid: 2 calls",
 			Code:     "call(a)\ncall(b)\n",
 			Expected: lextest.Nodes(callSuffixNode{pos: 5, end: 8}, callSuffixNode{pos: 13, end: 16}),
+		},
+
+		{
+			Name: "valid: 2 calls followed by other things",
+			Code: `call(a) "123"
+call(1) doSomething
+`,
+			Expected: lextest.Nodes(callSuffixNode{pos: 5, end: 9}, callSuffixNode{pos: 19, end: 23}),
 		},
 	}
 

@@ -209,6 +209,7 @@ type NodeBuilder[T any] struct {
 	Node     *T
 	onBuild  func(*T, bool)
 	counters map[string]int
+	flags    map[string]bool
 	parserID string
 }
 
@@ -216,6 +217,7 @@ func NewNodeBuilder[T any]() *NodeBuilder[T] {
 	return &NodeBuilder[T]{
 		Node:     new(T),
 		counters: make(map[string]int),
+		flags:    make(map[string]bool),
 	}
 }
 
@@ -231,6 +233,7 @@ func (b *NodeBuilder[T]) Reset() {
 	b.Error = false
 	b.Node = new(T)
 	b.counters = make(map[string]int)
+	b.flags = make(map[string]bool)
 }
 
 func (b *NodeBuilder[T]) Build() (T, bool) {
@@ -277,6 +280,18 @@ func (b *NodeBuilder[T]) Counter(name string) int {
 		return 0
 	}
 	return val
+}
+
+func (b *NodeBuilder[T]) SetFlag(name string) {
+	b.flags[name] = true
+}
+
+func (b *NodeBuilder[T]) ClearFlag(name string) {
+	delete(b.flags, name)
+}
+
+func (b *NodeBuilder[T]) Flag(name string) bool {
+	return b.flags[name]
 }
 
 func (b *NodeBuilder[T]) OnBuild(fn func(*T, bool)) *NodeBuilder[T] {

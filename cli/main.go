@@ -14,6 +14,7 @@ import (
 	"nhatp.com/go/sugar/cli/lspcmd"
 	"nhatp.com/go/sugar/cli/versioncmd"
 	"nhatp.com/go/sugar/sugars/check"
+	"nhatp.com/go/sugar/sugars/require"
 )
 
 const codeExUsage = 64
@@ -62,6 +63,7 @@ func Run(stdin, stdout, stderr *os.File, args []string) int {
 
 func registerPlugins() {
 	sugar.Register(check.New())
+	sugar.Register(require.New())
 }
 
 // ---

@@ -168,6 +168,10 @@ func (p *LexemePredicate) Any(lex Lexeme) bool {
 	return true
 }
 
+func (p *LexemePredicate) String(lex Lexeme) bool {
+	return lex.Tok == token.STRING
+}
+
 func (p *LexemePredicate) Assign(lex Lexeme) bool {
 	return lex.Tok == token.ASSIGN
 }
