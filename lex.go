@@ -5,6 +5,8 @@ import (
 	"go/scanner"
 	"go/token"
 	"log/slog"
+
+	"golang.org/x/tools/go/packages"
 )
 
 type Lexeme struct {
@@ -197,11 +199,18 @@ func NewLexicalParser[S comparable, B LexicalNodeBuilder[N], N any](
 
 type Node interface {
 	Pos() Lexeme
+
 	End() Lexeme
 }
 
+type SemanticNode interface {
+	Node
+
+	SemanticAnalysis(pkg *packages.Package, smap *SourceMap) error
+}
+
 type ParsedNode interface {
-	AsSugar() (Sugar, bool)
+	AsNode() (Node, bool)
 }
 
 type NodeBuilder[T any] struct {

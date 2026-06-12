@@ -4,13 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"go/format"
-	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"golang.org/x/mod/modfile"
-	"golang.org/x/tools/go/packages"
 )
 
 const defaultBinary = "go-sugar"
@@ -185,14 +183,16 @@ func (m *Module) StructuralTransform() {
 
 func (m *Module) SemanticTransform() error {
 	var fileErrors FileErrors
-	m.StructuralTransform()
+	scope := m.Scope()
 
-	if err := collectError(&fileErrors, m.analyzeSemantic()); err != nil {
-		return err
-	}
-
-	for _, v := range m.files {
-		v.SemanticTransform()
+	for _, f := range m.files {
+		if _, err := f.SemanticTransform(scope); err != nil {
+			if v, ok := errors.AsType[*FileError](err); ok {
+				fileErrors = append(fileErrors, v)
+				continue
+			}
+			return err
+		}
 	}
 
 	if len(fileErrors) > 0 {
@@ -218,8 +218,11 @@ func (m *Module) Generate() (map[*File][]byte, error) {
 
 // GenerateFile performs generate pipeline given File
 func (m *Module) GenerateFile(file *File) ([]byte, error) {
-	file.StructuralTransform()
-	content, err := format.Source(file.SemanticTransform())
+	transformed, err := file.SemanticTransform(m.Scope())
+	if err != nil {
+		return nil, err
+	}
+	content, err := format.Source(transformed)
 	if err != nil {
 		return nil, err
 	}
@@ -258,42 +261,7 @@ func (m *Module) prependHeaderComment(content []byte) []byte {
 	return append([]byte(header), content...)
 }
 
-func (m *Module) analyzeSemantic() error {
-	var sugarFiles = make(map[string]*File)
-	overlay := make(map[string][]byte)
-	for p, f := range m.files {
-		sugarFiles[p] = f
-		fp := filepath.Join(m.Root, f.goPath)
-		overlay[fp] = f.StructuralTransform()
-	}
-
-	cfg := &packages.Config{
-		Mode:    packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedSyntax | packages.NeedDeps | packages.NeedImports,
-		Fset:    token.NewFileSet(),
-		Overlay: overlay,
-		Dir:     m.Root,
-	}
-	pkgs, _ := packages.Load(cfg, "./...")
-	for p, f := range sugarFiles {
-		fpp := m.filePkgPath(p)
-
-		var pkg *packages.Package
-		for _, v := range pkgs {
-			if fpp == v.ID {
-				pkg = v
-				break
-			}
-		}
-
-		if pkg != nil {
-			// not fail just because the semantic analysis fail
-			_ = f.semanticAnalysis(pkg)
-		}
-	}
-	return nil
-}
-
-func (m *Module) filePkgPath(relPath string) string {
+func (m *Module) pkgPath(relPath string) string {
 	dir := filepath.Dir(relPath)
 	if dir == "." {
 		return m.PackagePath
@@ -363,6 +331,19 @@ func (m *Module) Resolve(inputs ...string) (TargetCollection, error) {
 		})
 	}
 	return result, nil
+}
+
+func (m *Module) Scope() ModuleScope {
+	overlay := make(map[string][]byte)
+	for _, f := range m.files {
+		overlay[filepath.Join(m.Root, f.goPath)] = f.StructuralTransform()
+	}
+
+	return ModuleScope{
+		Overlay:    overlay,
+		Root:       m.Root,
+		ModulePath: m.PackagePath,
+	}
 }
 
 var _ moduleAPI = (*Module)(nil)

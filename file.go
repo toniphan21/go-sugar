@@ -1,12 +1,9 @@
 package sugar
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
-
-	"golang.org/x/tools/go/packages"
 )
 
 func newFile(relPath, goFilePath string, content []byte) *File {
@@ -68,18 +65,6 @@ func (fe FileErrors) Error() string {
 	return sb.String()
 }
 
-func collectError(fe *FileErrors, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	if v, ok := errors.AsType[*FileError](err); ok {
-		*fe = append(*fe, v)
-		return nil
-	}
-	return err
-}
-
 type File struct {
 	hash      [32]byte
 	sugarPath string
@@ -107,12 +92,16 @@ func (f *File) StructuralTransform() []byte {
 	return f.current.StructuralTransform()
 }
 
-func (f *File) semanticAnalysis(pkg *packages.Package) error {
-	return f.current.semanticAnalysis(pkg)
-}
+func (f *File) SemanticTransform(module ModuleScope) ([]byte, error) {
+	t1smap := f.current.t1smap
+	if t1smap == nil {
+		return nil, fmt.Errorf("missing t1smap: call StructuralTransform first")
+	}
 
-func (f *File) SemanticTransform() []byte {
-	return f.current.SemanticTransform()
+	return f.current.SemanticTransform(module, FileScope{
+		PkgPath:     module.ResolvePackagePath(f.sugarPath),
+		T1SourceMap: *t1smap,
+	})
 }
 
 func (f *File) Hash() [32]byte {

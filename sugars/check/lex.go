@@ -34,12 +34,12 @@ type Statement struct {
 	identifiers []string
 }
 
-func (n Statement) AsSugar() (sugar.Sugar, bool) {
+func (n Statement) AsNode() (sugar.Node, bool) {
 	if !n.isCompleted {
 		return nil, false
 	}
 
-	i := &sugarImpl{
+	i := &node{
 		pos:      *n.pos,
 		end:      *n.end,
 		checkPos: *n.checkPos,

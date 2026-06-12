@@ -1,23 +1,25 @@
 package sugar
 
-import "golang.org/x/tools/go/packages"
-
-type snapshotAPI interface {
+type shareAPI interface {
 	Hash() [32]byte
 
 	StructuralTransform() []byte
-
-	semanticAnalysis(pkg *packages.Package) error
-
-	SemanticTransform() []byte
 
 	SugarToGo(line, column int) (int, int, error)
 
 	GoToSugar(line, column int) (int, int, error)
 }
 
+type snapshotAPI interface {
+	shareAPI
+
+	SemanticTransform(module ModuleScope, file FileScope) ([]byte, error)
+}
+
 type fileAPI interface {
-	snapshotAPI
+	shareAPI
+
+	SemanticTransform(module ModuleScope) ([]byte, error)
 
 	SugarPath() string
 

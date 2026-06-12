@@ -32,6 +32,8 @@ Diagram(
 )
 */
 
+var _ sugar.Node = (*SugarPlaceholderFunc)(nil)
+
 type SugarPlaceholderFunc struct {
 	pos      sugar.Lexeme
 	end      sugar.Lexeme

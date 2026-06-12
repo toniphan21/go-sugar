@@ -3,11 +3,10 @@ package sugar
 import (
 	"bytes"
 	"testing"
-
-	"golang.org/x/tools/go/packages"
 )
 
 type mockSugar struct {
+	Sugar
 	pos                  Lexeme
 	end                  Lexeme
 	structureTransformed string
@@ -21,20 +20,14 @@ func (m *mockSugar) End() Lexeme {
 	return m.end
 }
 
-func (m *mockSugar) StructuralTransform(source []byte, lexemes []Lexeme) []byte {
-	return []byte(m.structureTransformed)
+func (m *mockSugar) PrepareSource(id string, source []byte) {
 }
 
-func (m *mockSugar) RestoreTransform(source []byte, lexemes []Lexeme) []byte {
-	return nil
+func (m *mockSugar) CleanUp(sourceID, scopeID string) {
 }
 
-func (m *mockSugar) SemanticAnalysis(pkg *packages.Package, smap *SourceMap) error {
-	return nil
-}
-
-func (m *mockSugar) SemanticTransformer(source []byte, lexemes []Lexeme) []byte {
-	return nil
+func (m *mockSugar) StructuralTransform(sourceID string, n Node) ([]byte, error) {
+	return []byte(m.structureTransformed), nil
 }
 
 var _ Sugar = (*mockSugar)(nil)
@@ -44,17 +37,20 @@ func Test_Snapshot_doStructuralTransform(t *testing.T) {
 	//                0123456789...
 	// SUGAR is at offset 6, len 5, ends at 11
 
-	sugars := []Sugar{
-		&mockSugar{
-			pos:                  Lexeme{Offset: 6},
-			end:                  Lexeme{Offset: 11},
-			structureTransformed: "REPLACED",
-		},
+	s := &mockSugar{
+		pos:                  Lexeme{Offset: 6},
+		end:                  Lexeme{Offset: 11},
+		structureTransformed: "REPLACED",
 	}
 
 	ss := &Snapshot{
 		source: source,
-		sugars: sugars,
+		nodes: []parsedNode{
+			{
+				sugar: s,
+				node:  s,
+			},
+		},
 	}
 	_ = ss.StructuralTransform()
 

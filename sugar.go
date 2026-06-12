@@ -1,134 +1,225 @@
 package sugar
 
 import (
-	"bytes"
-	"cmp"
+	"errors"
+	"go/token"
+	"maps"
+	"path/filepath"
 	"slices"
 
+	"github.com/google/uuid"
 	"golang.org/x/tools/go/packages"
 )
 
-type Sugar interface {
-	Pos() Lexeme
-	End() Lexeme
-
-	StructuralTransform(source []byte, lexemes []Lexeme) []byte
-
-	SemanticAnalysis(pkg *packages.Package, smap *SourceMap) error
-
-	SemanticTransformer(source []byte, lexemes []Lexeme) []byte
+type SemanticScope struct {
+	ModuleScope
+	FileScope
 }
 
-type Plugin interface {
+type ModuleScope struct {
+	Overlay    map[string][]byte
+	Root       string
+	ModulePath string
+}
+
+func (m *ModuleScope) ResolvePackagePath(relPath string) string {
+	dir := filepath.Dir(relPath)
+	if dir == "." {
+		return m.ModulePath
+	}
+	return m.ModulePath + "/" + filepath.ToSlash(dir)
+}
+
+type FileScope struct {
+	PkgPath     string
+	T1SourceMap SourceMap
+}
+
+type Sugar interface {
 	ID() string
 
-	LexicalParser() LexicalParser
+	Parse(source []byte) []Node
 
-	RestoreParser() LexicalParser
+	Restore(source []byte) []Node
 
-	RestoreTransform(node Node, source []byte, lexemes []Lexeme) []byte
+	PrepareSource(id string, source []byte)
+
+	PrepareSemanticScope(id string, scope SemanticScope)
+
+	CleanUp(sourceID string, scopeID string)
+
+	StructuralTransform(sourceID string, n Node) ([]byte, error)
+
+	SemanticTransformer(sourceID string, scopeID string, n Node) ([]byte, error)
+
+	RestoreTransform(sourceID string, n Node) ([]byte, error)
 }
 
-var plugins map[string]Plugin
+// --- registration
 
-func Register(plugin Plugin) {
+var plugins map[string]Sugar
+
+func Register(plugin Sugar) {
 	if plugin == nil {
 		return
 	}
 	if plugins == nil {
-		plugins = make(map[string]Plugin)
+		plugins = make(map[string]Sugar)
 	}
 	plugins[plugin.ID()] = plugin
 }
 
-func asSugar(v any) (Sugar, bool) {
-	if s, ok := v.(Sugar); ok {
+func registered() []Sugar {
+	return slices.Collect(maps.Values(plugins))
+}
+
+// --- internal
+
+var ErrUnknownNode = errors.New("unknown node")
+var ErrUnpreparedSource = errors.New("unprepare source")
+var ErrUnpreparedSemanticScope = errors.New("unprepare semantic scope")
+var ErrUnknownPkg = errors.New("unknown pkg")
+
+type parsedNode struct {
+	sugar Sugar
+	node  Node
+}
+
+func makeSourceID(source []byte) string {
+	return uuid.Must(uuid.NewV7()).String()
+}
+
+func makeScopeID(_ ModuleScope, _ FileScope) string {
+	return uuid.Must(uuid.NewV7()).String()
+}
+
+// --- helpers
+
+type Base struct {
+	Sources  map[string][]byte
+	Scopes   map[string]SemanticScope
+	Packages map[string]*packages.Package
+}
+
+func (b *Base) PrepareSource(id string, source []byte) {
+	if b.Sources == nil {
+		b.Sources = make(map[string][]byte)
+	}
+	b.Sources[id] = source
+}
+
+func (b *Base) PrepareSemanticScope(id string, scope SemanticScope) {
+	if b.Scopes == nil {
+		b.Scopes = make(map[string]SemanticScope)
+	}
+	b.Scopes[id] = scope
+}
+
+func (b *Base) CleanUp(sourceID, scopeID string) {
+	if b.Sources != nil {
+		delete(b.Sources, sourceID)
+	}
+	if b.Scopes != nil {
+		delete(b.Scopes, scopeID)
+	}
+}
+
+func DoTransform[T any](b *Base, sourceID string, n Node, fn func(source []byte, data T) ([]byte, error)) ([]byte, error) {
+	data, ok := n.(T)
+	if !ok {
+		return nil, ErrUnknownNode
+	}
+
+	source, have := b.Sources[sourceID]
+	if !have {
+		return nil, ErrUnpreparedSource
+	}
+	return fn(source, data)
+}
+
+func DoTransformWithSemanticScope[T any](b *Base, sourceID, scopeID string, n Node, fn func(source []byte, data T) ([]byte, error)) ([]byte, error) {
+	data, ok := n.(T)
+	if !ok {
+		return nil, ErrUnknownNode
+	}
+
+	source, have := b.Sources[sourceID]
+	if !have {
+		return nil, ErrUnpreparedSource
+	}
+
+	scope, have := b.Scopes[scopeID]
+	if !have {
+		return nil, ErrUnpreparedSemanticScope
+	}
+
+	sn, ok := n.(SemanticNode)
+	if !ok {
+		return fn(source, data)
+	}
+
+	if b.Packages == nil {
+		b.Packages = make(map[string]*packages.Package)
+	}
+	cached, have := b.Packages[scopeID]
+	if !have {
+		cfg := &packages.Config{
+			Mode:    packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedSyntax | packages.NeedDeps | packages.NeedImports,
+			Fset:    token.NewFileSet(),
+			Overlay: scope.Overlay,
+			Dir:     scope.Root,
+		}
+		pkgs, _ := packages.Load(cfg, "./...")
+
+		var pkg *packages.Package
+		for _, p := range pkgs {
+			if scope.PkgPath == p.ID {
+				pkg = p
+				break
+			}
+		}
+
+		if pkg == nil {
+			return nil, ErrUnknownPkg
+		}
+		b.Packages[scopeID] = pkg
+		cached = pkg
+	}
+
+	if err := sn.SemanticAnalysis(cached, &scope.T1SourceMap); err != nil {
+		return nil, err
+	}
+	return fn(source, data)
+}
+
+func asNode(v any) (Node, bool) {
+	if s, ok := v.(Node); ok {
 		return s, true
 	}
 
 	if n, ok := v.(ParsedNode); ok {
-		return n.AsSugar()
+		return n.AsNode()
 	}
 	return nil, false
 }
 
-func parseSugars(lexemes []Lexeme) []Sugar {
-	var sugars []Sugar
-	for _, plugin := range plugins {
-		parser := plugin.LexicalParser()
+func DoParse(parser LexicalParser, source []byte) []Node {
+	lexemes := Lex(source)
+	var sugars []Node
 
-		offset := 0
-		for offset < len(lexemes) {
-			slice := lexemes[offset:]
+	offset := 0
+	for offset < len(lexemes) {
+		slice := lexemes[offset:]
 
-			if parser.Done(slice) {
-				if result, success := parser.Result(); success {
-					if sugar, ok := asSugar(result); ok {
-						sugars = append(sugars, sugar)
-					}
+		if parser.Done(slice) {
+			if result, success := parser.Result(); success {
+				if sugar, ok := asNode(result); ok {
+					sugars = append(sugars, sugar)
 				}
 			}
-			offset += parser.Consumed()
-			parser.Reset()
 		}
+		offset += parser.Consumed()
+		parser.Reset()
 	}
 	return sugars
-}
-
-type restoreNode struct {
-	plugin Plugin
-	node   Node
-}
-
-func parseRestoreNodes(lexemes []Lexeme) []*restoreNode {
-	var nodes []*restoreNode
-	var parsers = make(map[string]LexicalParser)
-	for _, plugin := range plugins {
-		parser, have := parsers[plugin.ID()]
-		if !have {
-			parser = plugin.RestoreParser()
-			parsers[plugin.ID()] = parser
-		}
-
-		offset := 0
-		for offset < len(lexemes) {
-			slice := lexemes[offset:]
-
-			if parser.Done(slice) {
-				if result, success := parser.Result(); success {
-					if n, ok := result.(Node); ok {
-						nodes = append(nodes, &restoreNode{plugin: plugin, node: n})
-					}
-				}
-			}
-			offset += parser.Consumed()
-			parser.Reset()
-		}
-	}
-	return nodes
-}
-
-func RestoreTransform(source []byte) []byte {
-	lexemes := Lex(source)
-	nodes := parseRestoreNodes(lexemes)
-
-	slices.SortFunc(nodes, func(a, b *restoreNode) int {
-		return cmp.Compare(a.node.Pos().Offset, b.node.Pos().Offset)
-	})
-
-	for _, v := range nodes {
-		v.plugin.RestoreTransform(v.node, source, lexemes)
-	}
-
-	out := bytes.Buffer{}
-	cursor := 0
-	for _, v := range nodes {
-		out.Write(source[cursor:v.node.Pos().Offset])
-		transformed := v.plugin.RestoreTransform(v.node, source, lexemes)
-		out.Write(transformed)
-		cursor = v.node.End().Offset
-	}
-	out.Write(source[cursor:])
-
-	return out.Bytes()
 }

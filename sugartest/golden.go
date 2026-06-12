@@ -196,7 +196,7 @@ func PerformSemanticTransform(dir string, config sugar.Config, tc gentest.Markdo
 	if !ok {
 		return nil, errors.New("cannot find input.gos file")
 	}
-	return f.SemanticTransform(), nil
+	return f.SemanticTransform(mod.Scope())
 }
 
 func RunGoldenRestoreTransformTest(t *testing.T, tc gentest.MarkdownTestCase) {

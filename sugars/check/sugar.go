@@ -2,153 +2,111 @@ package check
 
 import (
 	"bytes"
-	"go/ast"
-	"go/token"
-	"go/types"
 	"strings"
 
-	"golang.org/x/tools/go/packages"
 	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/lex"
 )
 
+func New() sugar.Sugar {
+	return &sugarImpl{Base: &sugar.Base{}}
+}
+
+const keyword = "check"
+const ID = "nhatp.com/go/sugar/sugars/check"
+
 type sugarImpl struct {
-	pos              sugar.Lexeme
-	end              sugar.Lexeme
-	checkPos         sugar.Lexeme
-	checkEnd         sugar.Lexeme
-	identifiers      []string
-	enclosingReturns []types.Type
-	callReturns      []types.Type
+	*sugar.Base
+}
+
+func (s *sugarImpl) ID() string {
+	return ID
+}
+
+func (s *sugarImpl) Parse(source []byte) []sugar.Node {
+	return sugar.DoParse(LexicalParser(), source)
+}
+
+func (s *sugarImpl) Restore(source []byte) []sugar.Node {
+	return sugar.DoParse(lex.SugarPlaceholderFuncParser(keyword), source)
+}
+
+func (s *sugarImpl) StructuralTransform(sourceID string, n sugar.Node) ([]byte, error) {
+	return sugar.DoTransform[*node](s.Base, sourceID, n, func(source []byte, data *node) ([]byte, error) {
+		// input:  [...]check ...
+		// output: [...]__sugar_check__(...)
+		// keep: pos-checkPos -> replace "check " by "__sugar_check__(" -> checkEnd:end -> add ")"
+		out := bytes.Buffer{}
+
+		out.Write(source[data.pos.Offset:data.checkPos.Offset])
+		out.Write([]byte(lex.SugarPlaceholderFuncName(keyword)))
+		out.WriteRune('(')
+		out.Write(source[data.checkEnd.Offset:data.end.Offset])
+		out.WriteRune(')')
+
+		return out.Bytes(), nil
+	})
+}
+
+func (s *sugarImpl) SemanticTransformer(sourceID string, scopeID string, n sugar.Node) ([]byte, error) {
+	return sugar.DoTransformWithSemanticScope[*node](s.Base, sourceID, scopeID, n, func(source []byte, data *node) ([]byte, error) {
+		// do simple things first, we update edge cases later
+		// output:
+
+		// if no identifiers:
+		// if err := [checkEnd:end); err != nil {<nl>
+		// <tab>return err<nl>
+		// }<nl>
+
+		// if there is identifiers:
+		// [identifiers, ] err := [checkEnd:end)\n
+		// if err != nil {<nl>
+		// <tab>return err<nl>
+		// }<nl>
+		out := bytes.Buffer{}
+
+		if len(data.identifiers) == 0 {
+			out.WriteString("if err := ")
+			out.Write(source[data.checkEnd.Offset:data.end.Offset])
+			out.WriteString("; err != nil {\n")
+			out.WriteRune('\t')
+			out.WriteString("return err\n")
+			out.WriteRune('}')
+		} else {
+			idents := make([]string, len(data.identifiers)+1)
+			copy(idents, data.identifiers)
+			idents[len(data.identifiers)] = "err"
+
+			out.WriteString(strings.Join(idents, ", "))
+			out.WriteString(" := ")
+			out.Write(source[data.checkEnd.Offset:data.end.Offset])
+			out.WriteRune('\n')
+			out.WriteString("if err != nil {\n")
+			out.WriteRune('\t')
+			out.WriteString("return err\n")
+			out.WriteRune('}')
+		}
+
+		return out.Bytes(), nil
+	})
+}
+
+func (s *sugarImpl) RestoreTransform(sourceID string, n sugar.Node) ([]byte, error) {
+	return sugar.DoTransform[lex.SugarPlaceholderFunc](s.Base, sourceID, n, func(source []byte, data lex.SugarPlaceholderFunc) ([]byte, error) {
+		if data.Keyword() != keyword {
+			return nil, sugar.ErrUnknownNode
+		}
+
+		// input:  [...]__sugar_check__(...)
+		// output: [...]check ...
+		// replace "__sugar_check__(" by "check ", keep: innerPos -> innerEnd,
+
+		out := bytes.Buffer{}
+		out.WriteString("check ")
+		out.Write(source[data.InnerPos().Offset:data.InnerEnd().Offset])
+
+		return out.Bytes(), nil
+	})
 }
 
 var _ sugar.Sugar = (*sugarImpl)(nil)
-
-func (s *sugarImpl) Pos() sugar.Lexeme {
-	return s.pos
-}
-
-func (s *sugarImpl) End() sugar.Lexeme {
-	return s.end
-}
-
-func (s *sugarImpl) StructuralTransform(source []byte, _ []sugar.Lexeme) []byte {
-	// input:  [...]check ...
-	// output: [...]__sugar_check__(...)
-	// keep: pos-checkPos -> replace "check " by "__sugar_check__(" -> checkEnd:end -> add ")"
-	out := bytes.Buffer{}
-
-	out.Write(source[s.pos.Offset:s.checkPos.Offset])
-	out.Write([]byte(lex.SugarPlaceholderFuncName(keyword)))
-	out.WriteRune('(')
-	out.Write(source[s.checkEnd.Offset:s.end.Offset])
-	out.WriteRune(')')
-
-	return out.Bytes()
-}
-
-func (s *sugarImpl) SemanticTransformer(source []byte, lexemes []sugar.Lexeme) []byte {
-	// do simple things first, we update edge cases later
-	// output:
-
-	// if no identifiers:
-	// if err := [checkEnd:end); err != nil {<nl>
-	// <tab>return err<nl>
-	// }<nl>
-
-	// if there is identifiers:
-	// [identifiers, ] err := [checkEnd:end)\n
-	// if err != nil {<nl>
-	// <tab>return err<nl>
-	// }<nl>
-	out := bytes.Buffer{}
-
-	if len(s.identifiers) == 0 {
-		out.WriteString("if err := ")
-		out.Write(source[s.checkEnd.Offset:s.end.Offset])
-		out.WriteString("; err != nil {\n")
-		out.WriteRune('\t')
-		out.WriteString("return err\n")
-		out.WriteRune('}')
-	} else {
-		idents := make([]string, len(s.identifiers)+1)
-		copy(idents, s.identifiers)
-		idents[len(s.identifiers)] = "err"
-
-		out.WriteString(strings.Join(idents, ", "))
-		out.WriteString(" := ")
-		out.Write(source[s.checkEnd.Offset:s.end.Offset])
-		out.WriteRune('\n')
-		out.WriteString("if err != nil {\n")
-		out.WriteRune('\t')
-		out.WriteString("return err\n")
-		out.WriteRune('}')
-	}
-
-	return out.Bytes()
-}
-
-func (s *sugarImpl) SemanticAnalysis(pkg *packages.Package, smap *sugar.SourceMap) error {
-	for _, file := range pkg.Syntax {
-		ast.Inspect(file, func(n ast.Node) bool {
-			call, ok := n.(*ast.CallExpr)
-			if !ok {
-				return true
-			}
-
-			// is this a __sugar_check__(...) call?
-			ident, ok := call.Fun.(*ast.Ident)
-			if !ok || ident.Name != lex.SugarPlaceholderFuncName(keyword) {
-				return true
-			}
-
-			pos := pkg.Fset.Position(call.Pos())
-			originalPosOffset, found := smap.GoToSugarByOffset(pos.Offset)
-			if !found || s.pos.Offset != originalPosOffset {
-				return true
-			}
-
-			// reset semantic data
-			s.enclosingReturns = nil
-			s.callReturns = nil
-
-			// find the enclosing function
-			enclosing := findEnclosingFunc(file, call.Pos())
-			if enclosing == nil {
-				return true
-			}
-			if enclosing.Type.Results != nil {
-				for _, field := range enclosing.Type.Results.List {
-					t := pkg.TypesInfo.TypeOf(field.Type)
-					s.enclosingReturns = append(s.enclosingReturns, t)
-				}
-			}
-
-			// the inner expression is the first arg of __sugar_check__
-			innerExpr := call.Args[0]
-			tv, ok := pkg.TypesInfo.Types[innerExpr]
-			if ok {
-				if tuple, ok := tv.Type.(*types.Tuple); ok {
-					for i := 0; i < tuple.Len(); i++ {
-						s.callReturns = append(s.callReturns, tuple.At(i).Type())
-					}
-				}
-			}
-			return true
-		})
-	}
-	return nil
-}
-
-func findEnclosingFunc(file *ast.File, pos token.Pos) *ast.FuncDecl {
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok {
-			continue
-		}
-		if fn.Pos() <= pos && pos < fn.End() {
-			return fn
-		}
-	}
-	return nil
-}
