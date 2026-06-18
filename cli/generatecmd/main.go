@@ -1,8 +1,8 @@
 package generatecmd
 
 import (
-	"io"
 	"log/slog"
+	"os"
 
 	"nhatp.com/go/gen-lib/cli"
 	"nhatp.com/go/sugar/internal/util"
@@ -26,7 +26,7 @@ func (a *Arguments) inputs() []string {
 	return a.Args
 }
 
-func Run(stdin io.Reader, stdout io.Writer, stderr io.Writer, args Arguments) error {
+func Run(stdin, stdout, stderr *os.File, args Arguments) error {
 	log, logFile, err := util.NewCLILogger(args.Log, stderr, args.LogLevel)
 	if err != nil {
 		return err

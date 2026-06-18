@@ -1,9 +1,13 @@
 package lex
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/oklog/ulid/v2"
 	"nhatp.com/go/sugar"
+	"nhatp.com/go/sugar/internal/sdk"
+	"nhatp.com/go/sugar/internal/sdk/transport"
 )
 
 /*
@@ -32,7 +36,60 @@ Diagram(
 )
 */
 
+func init() {
+	transport.RegisterNodeDeserializer(SugarPlaceholderFuncID, deserializeSugarPlaceholderFunc)
+}
+
+func serializeSugarPlaceholderFunc(n *SugarPlaceholderFunc) (*sdk.Node, error) {
+	var body []sdk.Lex
+	for _, b := range n.body {
+		body = append(body, b.ToSDKLex())
+	}
+
+	payload, err := json.Marshal(&sugarPlaceholderFuncPayload{
+		InnerPos: n.innerPos.ToSDKLex(),
+		InnerEnd: n.innerEnd.ToSDKLex(),
+		Body:     body,
+		Keyword:  n.keyword,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &sdk.Node{
+		ID:      ulid.Make().String(),
+		Type:    SugarPlaceholderFuncID,
+		Pos:     n.pos.ToSDKLex(),
+		End:     n.end.ToSDKLex(),
+		Payload: payload,
+	}, nil
+}
+
+func deserializeSugarPlaceholderFunc(in sdk.Node) (sugar.Node, error) {
+	n := &SugarPlaceholderFunc{}
+	n.pos = sugar.FromSDKLex(in.Pos)
+	n.end = sugar.FromSDKLex(in.End)
+
+	var payload sugarPlaceholderFuncPayload
+	if err := json.Unmarshal(in.Payload, &payload); err != nil {
+		return nil, err
+	}
+
+	var body []sugar.Lexeme
+	for _, b := range payload.Body {
+		body = append(body, sugar.FromSDKLex(b))
+	}
+
+	n.innerPos = sugar.FromSDKLex(payload.InnerPos)
+	n.innerEnd = sugar.FromSDKLex(payload.InnerEnd)
+	n.body = body
+	n.keyword = payload.Keyword
+
+	return *n, nil // important: other is checking with value receiver not pointer receiver
+}
+
 var _ sugar.Node = (*SugarPlaceholderFunc)(nil)
+var _ transport.NodeSerializer = (*SugarPlaceholderFunc)(nil)
 
 type SugarPlaceholderFunc struct {
 	pos      sugar.Lexeme
@@ -41,6 +98,13 @@ type SugarPlaceholderFunc struct {
 	innerEnd sugar.Lexeme
 	body     []sugar.Lexeme
 	keyword  string
+}
+
+type sugarPlaceholderFuncPayload struct {
+	InnerPos sdk.Lex   `json:"innerPos"`
+	InnerEnd sdk.Lex   `json:"innerEnd"`
+	Body     []sdk.Lex `json:"body"`
+	Keyword  string    `json:"keyword"`
 }
 
 func (n SugarPlaceholderFunc) Pos() sugar.Lexeme {
@@ -65,6 +129,10 @@ func (n SugarPlaceholderFunc) Keyword() string {
 
 func (n SugarPlaceholderFunc) Body() []sugar.Lexeme {
 	return n.body
+}
+
+func (n SugarPlaceholderFunc) Serialize() (*sdk.Node, error) {
+	return serializeSugarPlaceholderFunc(&n)
 }
 
 const SugarPlaceholderFuncID = "lex.SugarPlaceholderFunc"

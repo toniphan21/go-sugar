@@ -28,7 +28,7 @@ func (a *Arguments) inputs() []string {
 	return a.Args
 }
 
-func Run(stdin io.Reader, stdout io.Writer, stderr io.Writer, args Arguments) error {
+func Run(stdin, stdout, stderr *os.File, args Arguments) error {
 	log, logFile, err := util.NewCLILogger("", stderr, slog.LevelInfo)
 	if logFile != nil {
 		panic("log file is not allowed in fmt sub-command")

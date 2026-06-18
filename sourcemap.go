@@ -7,14 +7,14 @@ import (
 )
 
 type Position struct {
-	Offset int // byte offset from start of file, starting at 0
-	Line   int // line number, starting at 1
-	Column int // column number, starting at 1 (byte count)
+	Offset int `json:"offset"` // byte offset from start of file, starting at 0
+	Line   int `json:"line"`   // line number, starting at 1
+	Column int `json:"column"` // column number, starting at 1 (byte count)
 }
 
 type Region struct {
-	Pos Position // inclusive
-	End Position // exclusive
+	Pos Position `json:"pos"` // inclusive
+	End Position `json:"end"` // exclusive
 }
 
 type Kind int
@@ -29,23 +29,23 @@ const (
 )
 
 type Entry struct {
-	Sugar Region
-	Go    Region
-	Kind  Kind
+	Sugar Region `json:"sugar"`
+	Go    Region `json:"go"`
+	Kind  Kind   `json:"kind"`
 }
 
 type Header struct {
-	SugarFile string
-	GoFile    string
-	SugarHash [32]byte // SHA256 of sugar at generation time
-	GoHash    [32]byte // SHA256 of go at generation time
+	SugarFile string   `json:"sugarFile"`
+	GoFile    string   `json:"goFile"`
+	SugarHash [32]byte `json:"sugarHash"` // SHA256 of sugar at generation time
+	GoHash    [32]byte `json:"goHash"`    // SHA256 of go at generation time
 }
 
 type SourceMap struct {
-	Header  Header
-	Entries []Entry // insertion order, unsorted
-	ByGo    []int   // indices into Entries, sorted by Go.Pos.Offset
-	BySugar []int   // indices into Entries, sorted by Sugar.Pos.Offset
+	Header  Header  `json:"header"`
+	Entries []Entry `json:"entries"` // insertion order, unsorted
+	ByGo    []int   `json:"byGo"`    // indices into Entries, sorted by Go.Pos.Offset
+	BySugar []int   `json:"bySugar"` // indices into Entries, sorted by Sugar.Pos.Offset
 }
 
 func (sm *SourceMap) buildBySugar() {

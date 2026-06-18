@@ -3,23 +3,20 @@ package cli
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
-	"nhatp.com/go/gen-lib/cli"
+	genlibCli "nhatp.com/go/gen-lib/cli"
+
 	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/cli/fmtcmd"
 	"nhatp.com/go/sugar/cli/generatecmd"
 	"nhatp.com/go/sugar/cli/goldencmd"
 	"nhatp.com/go/sugar/cli/lspcmd"
 	"nhatp.com/go/sugar/cli/versioncmd"
+	"nhatp.com/go/sugar/internal/cli"
 	"nhatp.com/go/sugar/sugars/check"
 	"nhatp.com/go/sugar/sugars/require"
 )
-
-const codeExUsage = 64
-
-type Runner[T any] func(stdin io.Reader, stdout io.Writer, stderr io.Writer, args T) error
 
 const usageText = `usage: go-sugar <command> [<args>...]
 
@@ -41,7 +38,7 @@ commands:
 func Run(stdin, stdout, stderr *os.File, args []string) int {
 	if len(args) < 2 {
 		_, _ = fmt.Fprint(stderr, usageText)
-		return codeExUsage
+		return cli.CodeExUsage
 	}
 
 	registerPlugins()
@@ -58,7 +55,7 @@ func Run(stdin, stdout, stderr *os.File, args []string) int {
 		return version(stdin, stdout, stderr, args[2:], versioncmd.Run)
 	}
 
-	return codeExUsage
+	return cli.CodeExUsage
 }
 
 func registerPlugins() {
@@ -85,7 +82,7 @@ Flags:
 
 `
 
-func format(stdin, stdout, stderr *os.File, args []string, runner Runner[fmtcmd.Arguments]) int {
+func format(stdin, stdout, stderr *os.File, args []string, runner cli.Runner[fmtcmd.Arguments]) int {
 	cmd := flag.NewFlagSet("lsp", flag.ContinueOnError)
 	d := cmd.Bool("d", false, "Preview changes without writing to disk")
 	dry := cmd.Bool("dry", false, "Preview changes without writing to disk")
@@ -96,16 +93,16 @@ func format(stdin, stdout, stderr *os.File, args []string, runner Runner[fmtcmd.
 	h := cmd.Bool("h", false, "")
 	help := cmd.Bool("help", false, "")
 
-	cmd.Usage = cmdUsage(stderr, fmtUsageText)
+	cmd.Usage = cli.CmdUsage(stderr, fmtUsageText)
 	reorderableFlags := []string{
 		"d", "dry", "json", "no-color",
 	}
-	if err := cmd.Parse(reorderArgs(args, reorderableFlags...)); err != nil {
-		return codeExUsage
+	if err := cmd.Parse(cli.ReorderArgs(args, reorderableFlags...)); err != nil {
+		return cli.CodeExUsage
 	}
 
 	disableColorIfNeeded(noColor, stdout)
-	if printHelp(stderr, generateUsageText, h, help) {
+	if cli.PrintHelp(stderr, generateUsageText, h, help) {
 		return 0
 	}
 
@@ -114,7 +111,7 @@ func format(stdin, stdout, stderr *os.File, args []string, runner Runner[fmtcmd.
 		DryRun: *d || *dry || *json,
 		JSON:   *json,
 	}
-	return invokeRunner(stdin, stdout, stderr, arg, runner, printUsage(stderr, generateUsageText))
+	return cli.InvokeRunner(stdin, stdout, stderr, arg, runner, cli.PrintUsage(stderr, generateUsageText))
 }
 
 // ---
@@ -139,7 +136,7 @@ Flags:
 
 `
 
-func generate(stdin, stdout, stderr *os.File, args []string, runner Runner[generatecmd.Arguments]) int {
+func generate(stdin, stdout, stderr *os.File, args []string, runner cli.Runner[generatecmd.Arguments]) int {
 	cmd := flag.NewFlagSet("lsp", flag.ContinueOnError)
 	log := cmd.String("log", "", "The file to log the command output to")
 
@@ -156,16 +153,16 @@ func generate(stdin, stdout, stderr *os.File, args []string, runner Runner[gener
 	h := cmd.Bool("h", false, "")
 	help := cmd.Bool("help", false, "")
 
-	cmd.Usage = cmdUsage(stderr, generateUsageText)
+	cmd.Usage = cli.CmdUsage(stderr, generateUsageText)
 	reorderableFlags := []string{
 		"w", "watch", "d", "dry", "json", "v", "no-color",
 	}
-	if err := cmd.Parse(reorderArgs(args, reorderableFlags...)); err != nil {
-		return codeExUsage
+	if err := cmd.Parse(cli.ReorderArgs(args, reorderableFlags...)); err != nil {
+		return cli.CodeExUsage
 	}
 
 	disableColorIfNeeded(noColor, stdout)
-	if printHelp(stderr, generateUsageText, h, help) {
+	if cli.PrintHelp(stderr, generateUsageText, h, help) {
 		return 0
 	}
 
@@ -174,10 +171,10 @@ func generate(stdin, stdout, stderr *os.File, args []string, runner Runner[gener
 		Watch:    *w || *watch,
 		DryRun:   *d || *dry || *json,
 		JSON:     *json,
-		Log:      flagVal(log),
-		LogLevel: logLevel(verbosity),
+		Log:      cli.FlagVal(log),
+		LogLevel: cli.LogLevel(verbosity),
 	}
-	return invokeRunner(stdin, stdout, stderr, arg, runner, printUsage(stderr, generateUsageText))
+	return cli.InvokeRunner(stdin, stdout, stderr, arg, runner, cli.PrintUsage(stderr, generateUsageText))
 }
 
 // ---
@@ -193,28 +190,28 @@ Flags:
 
 `
 
-func lsp(stdin, stdout, stderr *os.File, args []string, runner Runner[lspcmd.Arguments]) int {
+func lsp(stdin, stdout, stderr *os.File, args []string, runner cli.Runner[lspcmd.Arguments]) int {
 	cmd := flag.NewFlagSet("lsp", flag.ContinueOnError)
 	log := cmd.String("log", "", "The file to log LSP output to")
 	verbosity := cmd.Bool("v", false, "Set log verbosity level to debug")
 	h := cmd.Bool("h", false, "")
 	help := cmd.Bool("help", false, "")
 
-	cmd.Usage = cmdUsage(stderr, lspUsageText)
+	cmd.Usage = cli.CmdUsage(stderr, lspUsageText)
 	if err := cmd.Parse(args); err != nil {
-		return codeExUsage
+		return cli.CodeExUsage
 	}
 
-	cli.DisableColor()
-	if printHelp(stderr, lspUsageText, h, help) {
+	genlibCli.DisableColor()
+	if cli.PrintHelp(stderr, lspUsageText, h, help) {
 		return 0
 	}
 
 	arg := lspcmd.Arguments{
 		Log:      *log,
-		LogLevel: logLevel(verbosity),
+		LogLevel: cli.LogLevel(verbosity),
 	}
-	return invokeRunner(stdin, stdout, stderr, arg, runner, printErrorTo(stderr))
+	return cli.InvokeRunner(stdin, stdout, stderr, arg, runner, cli.PrintErrorTo(stderr))
 }
 
 // ---
@@ -243,7 +240,7 @@ Flags:
 
 `
 
-func golden(stdin, stdout, stderr *os.File, args []string, runner Runner[goldencmd.Arguments]) int {
+func golden(stdin, stdout, stderr *os.File, args []string, runner cli.Runner[goldencmd.Arguments]) int {
 	cmd := flag.NewFlagSet("lsp", flag.ContinueOnError)
 	t1s := cmd.Bool("t1", false, "")
 	t1l := cmd.Bool("structural", false, "")
@@ -278,28 +275,28 @@ func golden(stdin, stdout, stderr *os.File, args []string, runner Runner[goldenc
 	h := cmd.Bool("h", false, "")
 	help := cmd.Bool("help", false, "")
 
-	cmd.Usage = cmdUsage(stderr, goldenUsageText)
+	cmd.Usage = cli.CmdUsage(stderr, goldenUsageText)
 	reorderableFlags := []string{
 		"t1", "structural", "t2", "semantic", "t3", "restore", "fmt", "format", "gen", "generate",
 		"n", "name", "s", "show-setup", "t", "tab-size", "e", "emit-code", "log", "v", "no-color",
 	}
-	if err := cmd.Parse(reorderArgs(args, reorderableFlags...)); err != nil {
-		return codeExUsage
+	if err := cmd.Parse(cli.ReorderArgs(args, reorderableFlags...)); err != nil {
+		return cli.CodeExUsage
 	}
 
 	disableColorIfNeeded(noColor, stdout)
-	if printHelp(stderr, goldenUsageText, h, help) {
+	if cli.PrintHelp(stderr, goldenUsageText, h, help) {
 		return 0
 	}
 
 	arg := goldencmd.Arguments{
 		Files:     cmd.Args(),
-		Name:      flagVal(n, name),
+		Name:      cli.FlagVal(n, name),
 		ShowSetup: *s || *showSetup,
-		TabSize:   flagVal(t, tabSize),
-		EmitCode:  flagVal(e, emitCode),
+		TabSize:   cli.FlagVal(t, tabSize),
+		EmitCode:  cli.FlagVal(e, emitCode),
 		Log:       *log,
-		LogLevel:  logLevel(verbosity),
+		LogLevel:  cli.LogLevel(verbosity),
 	}
 	switch {
 	case *t1s || *t1l:
@@ -315,7 +312,7 @@ func golden(stdin, stdout, stderr *os.File, args []string, runner Runner[goldenc
 	default:
 		arg.Type = goldencmd.TypeGeneratePipeline
 	}
-	return invokeRunner(stdin, stdout, stderr, arg, runner, printUsage(stderr, goldenUsageText))
+	return cli.InvokeRunner(stdin, stdout, stderr, arg, runner, cli.PrintUsage(stderr, goldenUsageText))
 }
 
 // ---
@@ -332,7 +329,7 @@ Flags:
 
 `
 
-func version(stdin, stdout, stderr *os.File, args []string, runner Runner[versioncmd.Arguments]) int {
+func version(stdin, stdout, stderr *os.File, args []string, runner cli.Runner[versioncmd.Arguments]) int {
 	cmd := flag.NewFlagSet("version", flag.ContinueOnError)
 	semver := cmd.Bool("v", false, "")
 	json := cmd.Bool("json", false, "")
@@ -340,13 +337,13 @@ func version(stdin, stdout, stderr *os.File, args []string, runner Runner[versio
 	h := cmd.Bool("h", false, "")
 	help := cmd.Bool("help", false, "")
 
-	cmd.Usage = cmdUsage(stderr, versionUsageText)
+	cmd.Usage = cli.CmdUsage(stderr, versionUsageText)
 	if err := cmd.Parse(args); err != nil {
-		return codeExUsage
+		return cli.CodeExUsage
 	}
 
 	disableColorIfNeeded(noColor, stdout)
-	if printHelp(stderr, versionUsageText, h, help) {
+	if cli.PrintHelp(stderr, versionUsageText, h, help) {
 		return 0
 	}
 
@@ -357,5 +354,5 @@ func version(stdin, stdout, stderr *os.File, args []string, runner Runner[versio
 	if *json {
 		arg.Format = versioncmd.FormatJSON
 	}
-	return invokeRunner(stdin, stdout, stderr, arg, runner, printErrorTo(stderr))
+	return cli.InvokeRunner(stdin, stdout, stderr, arg, runner, cli.PrintErrorTo(stderr))
 }

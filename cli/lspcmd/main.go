@@ -20,7 +20,7 @@ type Arguments struct {
 	LogLevel slog.Level
 }
 
-func Run(stdin io.Reader, stdout io.Writer, stderr io.Writer, args Arguments) error {
+func Run(stdin, stdout, stderr *os.File, args Arguments) error {
 	log, logFile, err := util.NewLogger(args.Log, stderr, args.LogLevel)
 	if err != nil {
 		return err

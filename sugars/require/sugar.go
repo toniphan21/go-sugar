@@ -14,6 +14,9 @@ func New() sugar.Sugar {
 
 const keyword = "require"
 const ID = "nhatp.com/go/sugar/sugars/require"
+const NodeType = ID + ".node"
+const Binary = "sugar-require"
+const Version = sugar.Version
 
 type sugarImpl struct {
 	*sugar.Base
@@ -21,6 +24,14 @@ type sugarImpl struct {
 
 func (s *sugarImpl) ID() string {
 	return ID
+}
+
+func (s *sugarImpl) Binary() sugar.BinaryInfo {
+	return sugar.BinaryInfo{
+		Name:    Binary,
+		Version: Version,
+		Usage:   "a go-sugar plugin for \"require\" sugar.\n\nSee full usage at https://nhatp.com/go/sugar/sugars/check",
+	}
 }
 
 func (s *sugarImpl) Parse(source []byte) []sugar.Node {

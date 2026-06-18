@@ -14,9 +14,20 @@ func New() sugar.Sugar {
 
 const keyword = "check"
 const ID = "nhatp.com/go/sugar/sugars/check"
+const NodeType = ID + ".node"
+const Binary = "sugar-check"
+const Version = sugar.Version
 
 type sugarImpl struct {
 	*sugar.Base
+}
+
+func (s *sugarImpl) Binary() sugar.BinaryInfo {
+	return sugar.BinaryInfo{
+		Name:    Binary,
+		Version: Version,
+		Usage:   "a go-sugar plugin for \"check\" sugar.\n\nSee full usage at https://nhatp.com/go/sugar/sugars/check",
+	}
 }
 
 func (s *sugarImpl) ID() string {

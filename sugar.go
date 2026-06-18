@@ -2,24 +2,23 @@ package sugar
 
 import (
 	"errors"
+	"fmt"
 	"go/token"
-	"maps"
 	"path/filepath"
-	"slices"
 
-	"github.com/google/uuid"
+	"github.com/oklog/ulid/v2"
 	"golang.org/x/tools/go/packages"
 )
 
 type SemanticScope struct {
-	ModuleScope
-	FileScope
+	ModuleScope `json:"module"`
+	FileScope   `json:"file"`
 }
 
 type ModuleScope struct {
-	Overlay    map[string][]byte
-	Root       string
-	ModulePath string
+	Overlay    map[string][]byte `json:"overlay"`
+	Root       string            `json:"root"`
+	ModulePath string            `json:"modulePath"`
 }
 
 func (m *ModuleScope) ResolvePackagePath(relPath string) string {
@@ -31,12 +30,20 @@ func (m *ModuleScope) ResolvePackagePath(relPath string) string {
 }
 
 type FileScope struct {
-	PkgPath     string
-	T1SourceMap SourceMap
+	PkgPath     string    `json:"pkgPath"`
+	T1SourceMap SourceMap `json:"t1SourceMap"`
+}
+
+type BinaryInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Usage   string `json:"usage"`
 }
 
 type Sugar interface {
 	ID() string
+
+	Binary() BinaryInfo
 
 	Parse(source []byte) []Node
 
@@ -55,24 +62,6 @@ type Sugar interface {
 	RestoreTransform(sourceID string, n Node) ([]byte, error)
 }
 
-// --- registration
-
-var plugins map[string]Sugar
-
-func Register(plugin Sugar) {
-	if plugin == nil {
-		return
-	}
-	if plugins == nil {
-		plugins = make(map[string]Sugar)
-	}
-	plugins[plugin.ID()] = plugin
-}
-
-func registered() []Sugar {
-	return slices.Collect(maps.Values(plugins))
-}
-
 // --- internal
 
 var ErrUnknownNode = errors.New("unknown node")
@@ -86,11 +75,11 @@ type parsedNode struct {
 }
 
 func makeSourceID(source []byte) string {
-	return uuid.Must(uuid.NewV7()).String()
+	return ulid.Make().String()
 }
 
 func makeScopeID(_ ModuleScope, _ FileScope) string {
-	return uuid.Must(uuid.NewV7()).String()
+	return ulid.Make().String()
 }
 
 // --- helpers
@@ -127,7 +116,7 @@ func (b *Base) CleanUp(sourceID, scopeID string) {
 func DoTransform[T any](b *Base, sourceID string, n Node, fn func(source []byte, data T) ([]byte, error)) ([]byte, error) {
 	data, ok := n.(T)
 	if !ok {
-		return nil, ErrUnknownNode
+		return nil, fmt.Errorf("%w: expected T, got %T", ErrUnknownNode, n)
 	}
 
 	source, have := b.Sources[sourceID]

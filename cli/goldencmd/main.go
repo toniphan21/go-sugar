@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 
 	genlib "nhatp.com/go/gen-lib"
@@ -48,7 +49,7 @@ type Arguments struct {
 	LogLevel  slog.Level
 }
 
-func Run(stdin io.Reader, stdout io.Writer, stderr io.Writer, args Arguments) error {
+func Run(stdin, stdout, stderr *os.File, args Arguments) error {
 	log, logFile, err := util.NewCLILogger(args.Log, stderr, args.LogLevel)
 	if err != nil {
 		return err

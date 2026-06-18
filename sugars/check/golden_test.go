@@ -13,6 +13,8 @@ var testdata embed.FS
 
 func Test_Golden(t *testing.T) {
 	sugar.Register(New())
+	//_ = sugar.RegisterBinary(".../bin/sugar-check")
+	//t.Cleanup(sugar.StopBinaryProcesses)
 
 	suite := []golden.TestSuite{
 		{Name: "generate", FS: testdata, Match: "testdata/generate-pipeline/*.md", Run: golden.GeneratePipeline},

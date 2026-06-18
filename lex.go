@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"golang.org/x/tools/go/packages"
+	"nhatp.com/go/sugar/internal/sdk"
 )
 
 type Lexeme struct {
@@ -20,6 +21,28 @@ type Lexeme struct {
 
 func (l *Lexeme) GoString() string {
 	return fmt.Sprintf("%v | Tok:%d Pos:%d Lit:%#v | line:%d col:%d offset:%d", TokenName(l.Tok), l.Tok, l.Pos, l.Lit, l.Line, l.Column, l.Offset)
+}
+
+func (l *Lexeme) ToSDKLex() sdk.Lex {
+	return sdk.Lex{
+		Tok:    int(l.Tok),
+		Pos:    int(l.Pos),
+		Lit:    l.Lit,
+		Line:   l.Line,
+		Column: l.Column,
+		Offset: l.Offset,
+	}
+}
+
+func FromSDKLex(lex sdk.Lex) Lexeme {
+	return Lexeme{
+		Tok:    token.Token(lex.Tok),
+		Pos:    token.Pos(lex.Pos),
+		Lit:    lex.Lit,
+		Line:   lex.Line,
+		Column: lex.Column,
+		Offset: lex.Offset,
+	}
 }
 
 func Lex(content []byte) []Lexeme {
