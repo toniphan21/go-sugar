@@ -2,12 +2,15 @@ package require
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/types"
 
 	"github.com/oklog/ulid/v2"
 	"golang.org/x/tools/go/packages"
 	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/internal/sdk"
 	"nhatp.com/go/sugar/internal/sdk/transport"
+	"nhatp.com/go/sugar/sa"
 )
 
 func init() {
@@ -83,6 +86,9 @@ type node struct {
 	messageEnd  *sugar.Lexeme
 	message     *string
 	identifiers []string
+
+	enclosingParams []*types.Var
+	callReturns     []types.Type
 }
 
 func (n *node) Pos() sugar.Lexeme {
@@ -93,12 +99,57 @@ func (n *node) End() sugar.Lexeme {
 	return n.end
 }
 
+func (n *node) Serialize() (*sdk.Node, error) {
+	return serializeNode(n)
+}
+
 func (n *node) SemanticAnalysis(pkg *packages.Package, smap *sugar.SourceMap) error {
+	sa.InspectPlaceholderFunc(pkg, smap, n, keyword, func(file *ast.File, call *ast.CallExpr) bool {
+		// reset semantic data
+		n.callReturns = nil
+		n.enclosingParams = nil
+
+		// the inner expression is the first arg of __sugar_require__
+		innerExpr := call.Args[0]
+		tv, ok := pkg.TypesInfo.Types[innerExpr]
+		if ok {
+			if tuple, ok := tv.Type.(*types.Tuple); ok {
+				for i := 0; i < tuple.Len(); i++ {
+					n.callReturns = append(n.callReturns, tuple.At(i).Type())
+				}
+			}
+		}
+
+		// find the enclosing function
+		enclosing := sa.FindEnclosingFunc(file, call.Pos())
+		if enclosing == nil {
+			return true
+		}
+		fn := pkg.TypesInfo.Defs[enclosing.Name].(*types.Func)
+		sig, ok := fn.Type().(*types.Signature)
+		if !ok {
+			return true
+		}
+		if sig.Params() != nil {
+			params := sig.Params()
+			for i := 0; i < params.Len(); i++ {
+				n.enclosingParams = append(n.enclosingParams, params.At(i))
+			}
+		}
+		return true
+	})
+
 	return nil
 }
 
-func (n *node) Serialize() (*sdk.Node, error) {
-	return serializeNode(n)
+func (n *node) findTestingParam() (string, bool) {
+	for _, v := range n.enclosingParams {
+		t := v.Type()
+		if sa.IsTestingTB(t) || sa.IsTestingReceiver(t) {
+			return v.Name(), true
+		}
+	}
+	return "", false
 }
 
 var _ sugar.SemanticNode = (*node)(nil)

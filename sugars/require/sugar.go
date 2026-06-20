@@ -3,6 +3,7 @@ package require
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 
 	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/lex"
@@ -63,7 +64,35 @@ func (s *sugarImpl) StructuralTransform(sourceID string, n sugar.Node) ([]byte, 
 }
 
 func (s *sugarImpl) SemanticTransformer(sourceID string, scopeID string, n sugar.Node) ([]byte, error) {
-	return nil, nil
+	return sugar.DoTransformWithSemanticScope[*node](s.Base, sourceID, scopeID, n, func(source []byte, data *node) ([]byte, error) {
+		var expr []byte
+		if data.messagePos == nil {
+			expr = source[data.requireEnd.Offset:data.end.Offset]
+		} else {
+			expr = source[data.requireEnd.Offset:data.messagePos.Offset]
+		}
+
+		out := bytes.Buffer{}
+		out.WriteString("if err := ")
+		out.Write(expr)
+		out.WriteString("; err != nil {\n")
+		out.WriteRune('\t')
+
+		name, have := data.findTestingParam()
+		if have {
+			out.WriteString(name)
+			out.WriteString(`.Fatalf("%s: %w", `)
+			out.WriteString(strconv.Quote(string(expr)))
+			out.WriteString(", err)\n")
+		} else {
+			out.WriteString(`panic(`)
+			out.WriteString(strconv.Quote(string(expr) + ": "))
+			out.WriteString(" + err.Error())\n")
+		}
+		out.WriteString("}")
+
+		return out.Bytes(), nil
+	})
 }
 
 func (s *sugarImpl) RestoreTransform(sourceID string, n sugar.Node) ([]byte, error) {

@@ -20,7 +20,7 @@ func Test_Golden(t *testing.T) {
 		//{Name: "generate", FS: testdata, Match: "testdata/generate-pipeline/*.md", Run: golden.GeneratePipeline},
 		{Name: "format", FS: testdata, Match: "testdata/fmt-*.md", Run: golden.FormatPipeline},
 		{Name: "t1", FS: testdata, Match: "testdata/t1-*.md", Run: golden.StructuralTransform},
-		//{Name: "t2", FS: testdata, Match: "testdata/semantic-transform/*.md", Run: golden.SemanticTransform},
+		{Name: "t2", FS: testdata, Match: "testdata/t2-*.md", Run: golden.SemanticTransform},
 		{Name: "t3", FS: testdata, Match: "testdata/t3-*.md", Run: golden.RestoreTransform},
 
 		{

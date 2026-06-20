@@ -3,7 +3,6 @@ package check
 import (
 	"encoding/json"
 	"go/ast"
-	"go/token"
 	"go/types"
 
 	"github.com/oklog/ulid/v2"
@@ -11,7 +10,7 @@ import (
 	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/internal/sdk"
 	"nhatp.com/go/sugar/internal/sdk/transport"
-	"nhatp.com/go/sugar/lex"
+	"nhatp.com/go/sugar/sa"
 )
 
 func init() {
@@ -85,66 +84,34 @@ func (n *node) Serialize() (*sdk.Node, error) {
 }
 
 func (n *node) SemanticAnalysis(pkg *packages.Package, smap *sugar.SourceMap) error {
-	for _, file := range pkg.Syntax {
-		ast.Inspect(file, func(v ast.Node) bool {
-			call, ok := v.(*ast.CallExpr)
-			if !ok {
-				return true
-			}
+	sa.InspectPlaceholderFunc(pkg, smap, n, keyword, func(file *ast.File, call *ast.CallExpr) bool {
+		// reset semantic data
+		n.enclosingReturns = nil
+		n.callReturns = nil
 
-			// is this a __sugar_check__(...) call?
-			ident, ok := call.Fun.(*ast.Ident)
-			if !ok || ident.Name != lex.SugarPlaceholderFuncName(keyword) {
-				return true
-			}
-
-			pos := pkg.Fset.Position(call.Pos())
-			originalPosOffset, found := smap.GoToSugarByOffset(pos.Offset)
-			if !found || n.pos.Offset != originalPosOffset {
-				return true
-			}
-
-			// reset semantic data
-			n.enclosingReturns = nil
-			n.callReturns = nil
-
-			// find the enclosing function
-			enclosing := n.findEnclosingFunc(file, call.Pos())
-			if enclosing == nil {
-				return true
-			}
-			if enclosing.Type.Results != nil {
-				for _, field := range enclosing.Type.Results.List {
-					t := pkg.TypesInfo.TypeOf(field.Type)
-					n.enclosingReturns = append(n.enclosingReturns, t)
-				}
-			}
-
-			// the inner expression is the first arg of __sugar_check__
-			innerExpr := call.Args[0]
-			tv, ok := pkg.TypesInfo.Types[innerExpr]
-			if ok {
-				if tuple, ok := tv.Type.(*types.Tuple); ok {
-					for i := 0; i < tuple.Len(); i++ {
-						n.callReturns = append(n.callReturns, tuple.At(i).Type())
-					}
-				}
-			}
+		// find the enclosing function
+		enclosing := sa.FindEnclosingFunc(file, call.Pos())
+		if enclosing == nil {
 			return true
-		})
-	}
-	return nil
-}
+		}
+		if enclosing.Type.Results != nil {
+			for _, field := range enclosing.Type.Results.List {
+				t := pkg.TypesInfo.TypeOf(field.Type)
+				n.enclosingReturns = append(n.enclosingReturns, t)
+			}
+		}
 
-func (n *node) findEnclosingFunc(file *ast.File, pos token.Pos) *ast.FuncDecl {
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok {
-			continue
+		// the inner expression is the first arg of __sugar_check__
+		innerExpr := call.Args[0]
+		tv, ok := pkg.TypesInfo.Types[innerExpr]
+		if ok {
+			if tuple, ok := tv.Type.(*types.Tuple); ok {
+				for i := 0; i < tuple.Len(); i++ {
+					n.callReturns = append(n.callReturns, tuple.At(i).Type())
+				}
+			}
 		}
-		if fn.Pos() <= pos && pos < fn.End() {
-			return fn
-		}
-	}
+		return true
+	})
 	return nil
 }
