@@ -23,4 +23,4 @@ jobs:
         run: go mod download
 
       - name: Run Tests
-        run: go test $(go list ./... | grep -v /tools)
+        run: go test -v ./...

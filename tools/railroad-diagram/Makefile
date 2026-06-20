@@ -1,6 +1,6 @@
 REPO_URL := https://github.com/tabatkins/railroad-diagrams
 BRANCH   := gh-pages
-DEST     := ./tabatkins
+DEST     := ./data/tabatkins
 
 clone:
 	rm -rf $(DEST)

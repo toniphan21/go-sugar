@@ -2,5 +2,5 @@ package asset
 
 import "embed"
 
-//go:embed resource/index.html resource/main.wasm resource/wasm_exec.js
+//go:embed resource
 var Content embed.FS

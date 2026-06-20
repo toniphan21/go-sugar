@@ -1,9 +1,9 @@
-//go:build !linux && !wasm
+//go:build js && wasm
 
 package sdk
 
 import "syscall"
 
 func sysProcAttr() *syscall.SysProcAttr {
-	return &syscall.SysProcAttr{Setpgid: true}
+	return &syscall.SysProcAttr{}
 }

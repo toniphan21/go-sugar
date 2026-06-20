@@ -36,4 +36,4 @@ go.work.sum
 
 *.wasm
 
-/tools/railroad-diagram/tabatkins
+/tools/railroad-diagram/data/tabatkins

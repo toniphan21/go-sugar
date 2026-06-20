@@ -11,7 +11,7 @@ import (
 	"nhatp.com/go/sugar"
 )
 
-//go:embed tabatkins/*
+//go:embed data
 var embeddedAssets embed.FS
 
 // OverlayFS tries the disk FS first, then falls back to the embedded FS.
@@ -31,7 +31,7 @@ func (o OverlayFS) Open(name string) (fs.File, error) {
 func main() {
 	DefaultPort := strconv.Itoa(sugar.ToolRailroadDiagramPort)
 
-	resourceFS, err := fs.Sub(embeddedAssets, "tabatkins")
+	resourceFS, err := fs.Sub(embeddedAssets, "data/tabatkins")
 	if err != nil {
 		panic(err)
 	}
