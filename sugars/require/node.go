@@ -152,5 +152,24 @@ func (n *node) findTestingParam() (string, bool) {
 	return "", false
 }
 
+func (n *node) scanMessageVerbs(s string) (hasS, hasW bool) {
+	for i := 0; i < len(s); i++ {
+		if s[i] != '%' || i+1 >= len(s) {
+			continue
+		}
+		switch s[i+1] {
+		case '%':
+			i++ // literal percent, skip
+		case 's':
+			hasS = true
+			i++
+		case 'w':
+			hasW = true
+			i++
+		}
+	}
+	return
+}
+
 var _ sugar.SemanticNode = (*node)(nil)
 var _ transport.NodeSerializer = (*node)(nil)

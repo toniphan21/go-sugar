@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"nhatp.com/go/sugar"
 	"nhatp.com/go/sugar/lex"
@@ -73,26 +74,79 @@ func (s *sugarImpl) SemanticTransformer(sourceID string, scopeID string, n sugar
 		}
 
 		out := bytes.Buffer{}
-		out.WriteString("if err := ")
-		out.Write(expr)
-		out.WriteString("; err != nil {\n")
-		out.WriteRune('\t')
 
-		name, have := data.findTestingParam()
-		if have {
-			out.WriteString(name)
-			out.WriteString(`.Fatalf("%s: %w", `)
-			out.WriteString(strconv.Quote(string(expr)))
-			out.WriteString(", err)\n")
+		if len(data.identifiers) == 0 {
+			out.WriteString("if err := ")
+			out.Write(expr)
+			out.WriteString("; err != nil {\n")
 		} else {
-			out.WriteString(`panic(`)
-			out.WriteString(strconv.Quote(string(expr) + ": "))
-			out.WriteString(" + err.Error())\n")
+			idents := make([]string, len(data.identifiers)+1)
+			copy(idents, data.identifiers)
+			idents[len(data.identifiers)] = "err"
+
+			out.WriteString(strings.Join(idents, ", "))
+			out.WriteString(" := ")
+			out.Write(expr)
+			out.WriteRune('\n')
+			out.WriteString("if err != nil {\n")
 		}
-		out.WriteString("}")
+
+		out.WriteRune('\t')
+		s.emitHandleCode(&out, data, expr)
+		out.WriteRune('}')
 
 		return out.Bytes(), nil
 	})
+}
+
+func (s *sugarImpl) emitHandleCode(out *bytes.Buffer, data *node, expr []byte) {
+	name, have := data.findTestingParam()
+	if !have {
+		out.WriteString(`panic(`)
+		if data.message == nil {
+			out.WriteString(strconv.Quote(strings.TrimSpace(string(expr)) + ": "))
+			out.WriteString(" + err.Error())\n")
+			return
+		}
+
+		out.WriteString(*data.message)
+		out.WriteString(")\n")
+		return
+	}
+
+	out.WriteString(name)
+
+	exprString := strconv.Quote(strings.TrimSpace(string(expr)))
+	if data.message == nil {
+		out.WriteString(`.Fatalf("%s: %w", `)
+		out.WriteString(exprString)
+		out.WriteString(", err)\n")
+		return
+	}
+
+	msg := *data.message
+	switch hasS, hasW := data.scanMessageVerbs(msg); {
+	case hasS && hasW:
+		out.WriteString(`.Fatalf(`)
+		out.WriteString(msg)
+		out.WriteString(`, `)
+		out.WriteString(exprString)
+		out.WriteString(", err)\n")
+	case hasS:
+		out.WriteString(`.Fatalf(`)
+		out.WriteString(msg)
+		out.WriteString(`, `)
+		out.WriteString(exprString)
+		out.WriteString(")\n")
+	case hasW:
+		out.WriteString(`.Fatalf(`)
+		out.WriteString(msg)
+		out.WriteString(", err)\n")
+	default:
+		out.WriteString(`.Fatal(`)
+		out.WriteString(msg)
+		out.WriteString(")\n")
+	}
 }
 
 func (s *sugarImpl) RestoreTransform(sourceID string, n sugar.Node) ([]byte, error) {
