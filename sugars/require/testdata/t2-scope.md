@@ -67,7 +67,7 @@ func setUp() error { return nil }
 
 func Test(t *testing.T) {
 	if err := setUp(); err != nil {
-	t.Fatalf("%s: %w", "setUp()", err)
+	t.Fatalf("%s: %v", "setUp()", err)
 }
 }
 ```
@@ -101,7 +101,7 @@ func setUp() error { return nil }
 
 func testSomething(tt testing.TB, input string) {
 	if err := setUp(); err != nil {
-	tt.Fatalf("%s: %w", "setUp()", err)
+	tt.Fatalf("%s: %v", "setUp()", err)
 }
 }
 ```
@@ -135,7 +135,7 @@ func setUp() error { return nil }
 
 func Benchmark(b *testing.B) {
 	if err := setUp(); err != nil {
-	b.Fatalf("%s: %w", "setUp()", err)
+	b.Fatalf("%s: %v", "setUp()", err)
 }
 }
 ```
@@ -169,7 +169,7 @@ func setUp() error { return nil }
 
 func Fuzz(f *testing.F) {
 	if err := setUp(); err != nil {
-	f.Fatalf("%s: %w", "setUp()", err)
+	f.Fatalf("%s: %v", "setUp()", err)
 }
 }
 ```

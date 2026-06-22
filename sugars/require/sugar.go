@@ -118,15 +118,15 @@ func (s *sugarImpl) emitHandleCode(out *bytes.Buffer, data *node, expr []byte) {
 
 	exprString := strconv.Quote(strings.TrimSpace(string(expr)))
 	if data.message == nil {
-		out.WriteString(`.Fatalf("%s: %w", `)
+		out.WriteString(`.Fatalf("%s: %v", `)
 		out.WriteString(exprString)
 		out.WriteString(", err)\n")
 		return
 	}
 
 	msg := *data.message
-	switch hasS, hasW := data.scanMessageVerbs(msg); {
-	case hasS && hasW:
+	switch hasS, hasV := data.scanMessageVerbs(msg); {
+	case hasS && hasV:
 		out.WriteString(`.Fatalf(`)
 		out.WriteString(msg)
 		out.WriteString(`, `)
@@ -138,7 +138,7 @@ func (s *sugarImpl) emitHandleCode(out *bytes.Buffer, data *node, expr []byte) {
 		out.WriteString(`, `)
 		out.WriteString(exprString)
 		out.WriteString(")\n")
-	case hasW:
+	case hasV:
 		out.WriteString(`.Fatalf(`)
 		out.WriteString(msg)
 		out.WriteString(", err)\n")

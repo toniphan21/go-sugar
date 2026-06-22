@@ -59,6 +59,22 @@ func Test_CallExpr(t *testing.T) {
 				callPos:     42, callEnd: 49,
 			}),
 		},
+		{
+			Name: "valid: multiple lines call with lit",
+			Code: lextest.MakeCode(
+				`var test = func() {`,
+				`	x := 0`,
+				`	strconv.Atoi(`,
+				`		"any",`,
+				`		1,`,
+				`	)`,
+				`}`,
+			),
+			Expected: callExprNodes(callExprNode{
+				identifiers: []string{"strconv", "Atoi"},
+				callPos:     42, callEnd: 60,
+			}),
+		},
 	}
 
 	for _, tc := range cases {

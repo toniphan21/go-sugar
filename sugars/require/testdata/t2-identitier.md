@@ -37,7 +37,7 @@ func setUp() error { return nil }
 
 func Test(t *testing.T) {
 	if err := setUp(); err != nil {
-	t.Fatalf("%s: %w", "setUp()", err)
+	t.Fatalf("%s: %v", "setUp()", err)
 }
 }
 ```
@@ -72,7 +72,7 @@ func setUp() error { return nil }
 func Test(t *testing.T) {
 	x, err := setUp()
 if err != nil {
-	t.Fatalf("%s: %w", "setUp()", err)
+	t.Fatalf("%s: %v", "setUp()", err)
 }
 }
 ```

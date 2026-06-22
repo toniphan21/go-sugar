@@ -20,9 +20,9 @@ func setUp() error { return nil }
 func DoSomething() {
 	require setUp() "set up failed"
 	require setUp() "%s failed"
-	require setUp() "set up failed: %w"
-	require setUp() "%s failed: %w"
-	require setUp() "%%s failed: %%w"
+	require setUp() "set up failed: %v"
+	require setUp() "%s failed: %v"
+	require setUp() "%%s failed: %%v"
 }
 ```
 
@@ -42,13 +42,13 @@ func DoSomething() {
 	panic("%s failed")
 }
 	if err := setUp() ; err != nil {
-	panic("set up failed: %w")
+	panic("set up failed: %v")
 }
 	if err := setUp() ; err != nil {
-	panic("%s failed: %w")
+	panic("%s failed: %v")
 }
 	if err := setUp() ; err != nil {
-	panic("%%s failed: %%w")
+	panic("%%s failed: %%v")
 }
 }
 ```
@@ -68,9 +68,9 @@ func setUp() error { return nil }
 func Test(t *testing.T) {
 	require setUp() "set up failed"
 	require setUp() "%s failed"
-	require setUp() "set up failed: %w"
-	require setUp() "%s failed: %w"
-	require setUp() "%%s failed: %%w"
+	require setUp() "set up failed: %v"
+	require setUp() "%s failed: %v"
+	require setUp() "%%s failed: %%v"
 }
 ```
 
@@ -92,13 +92,13 @@ func Test(t *testing.T) {
 	t.Fatalf("%s failed", "setUp()")
 }
 	if err := setUp() ; err != nil {
-	t.Fatalf("set up failed: %w", err)
+	t.Fatalf("set up failed: %v", err)
 }
 	if err := setUp() ; err != nil {
-	t.Fatalf("%s failed: %w", "setUp()", err)
+	t.Fatalf("%s failed: %v", "setUp()", err)
 }
 	if err := setUp() ; err != nil {
-	t.Fatal("%%s failed: %%w")
+	t.Fatal("%%s failed: %%v")
 }
 }
 ```

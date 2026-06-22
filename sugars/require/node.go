@@ -152,7 +152,7 @@ func (n *node) findTestingParam() (string, bool) {
 	return "", false
 }
 
-func (n *node) scanMessageVerbs(s string) (hasS, hasW bool) {
+func (n *node) scanMessageVerbs(s string) (hasS, hasV bool) {
 	for i := 0; i < len(s); i++ {
 		if s[i] != '%' || i+1 >= len(s) {
 			continue
@@ -163,8 +163,8 @@ func (n *node) scanMessageVerbs(s string) (hasS, hasW bool) {
 		case 's':
 			hasS = true
 			i++
-		case 'w':
-			hasW = true
+		case 'v':
+			hasV = true
 			i++
 		}
 	}
