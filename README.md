@@ -15,7 +15,7 @@ constructs usable in production (think C's `assert.h` with `NDEBUG`).
 
 The first two reference sugar plugins, `require` and `assert`, target the most repetitive parts of Go tests.
 
-### `require`: collapse error-handling boilerplate
+### `require`: keyword for error-handling boilerplate
 
 test file with `require` sugar:
 
@@ -51,23 +51,26 @@ func Test_Something(t *testing.T) {
 }
 ```
 
-### `assert`: readable assertion comparisons with informative failure messages
+### `assert`: built-in assert function with informative failure messages
 
 test file with `assert` sugar:
 
-```gos
+```go
 // test.gos
+
 package demo
 
 import "testing"
 
-func Test_Something(t *testing.T) {
-    // ...
-    
-    assert age > 18
-    assert username == "test"
-    assert called != 0 "service is not called"
-    assert result == expected
+func Test_Something(t *testing.T) { 
+	// ... 
+	
+	assert(age > 18)
+	assert(username == "test")
+	assert(result == expected)
+	assert(a == "a" || !b)
+	assert(called != 0, "service is not called")
+	assert(returned == 0, "program exits with error code %v", returned)
 }
 ```
 
@@ -82,19 +85,24 @@ func Test_Something(t *testing.T) {
 	// ...
 
 	if !(age > 18) {
-		t.Errorf("%s\n\t got: %#v", "assert age > 18", age)
+		t.Errorf("%s\n\t got: %#v", "age > 18", age)
 	}
 	if !(username == "test") {
-		t.Errorf("%s\n\t got: %#v", "assert username == \"test\"", username)
+		t.Errorf("%s\n\t got: %#v", "username == \"test\"", username)
+	}
+	if !(result == expected) {
+		t.Errorf("%s\n\t got: %#v\n\twant: %#v", "result == expected", result, expected)
+	}
+	if !(a == "a" || !b) {
+		t.Error("assertion failed: a == \"a\" || !b")
 	}
 	if !(called != 0) {
 		t.Error("service is not called")
 	}
-	if !(result == expected) {
-		t.Errorf("%s\n\t got: %#v\n\twant:%#v", "assert result == expected", result, expected)
+	if !(returned == 0) {
+		t.Errorf("program exits with error code %v", returned)
 	}
 }
-
 ```
 
 ## Status
